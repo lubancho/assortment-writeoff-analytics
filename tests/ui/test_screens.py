@@ -81,3 +81,25 @@ def test_reports_switch_sql_task():
     at.selectbox[0].set_value(8).run()
     assert not at.exception
     assert len(at.get("download_button")) >= 2
+
+
+def test_overview_has_hierarchy_and_attention_block():
+    at = run_view("overview")
+    text = " ".join(m.value for m in at.markdown)
+    assert "Основные показатели" in text and "Что требует внимания" in text
+    assert [m.label for m in at.metric][:3] == ["Выручка", "Валовая прибыль", "Маржинальность"]
+
+
+@pytest.mark.parametrize("view", ["overview", "assortment", "profitability", "stock"])
+def test_tables_label_missing_values(view):
+    """Пустые значения подписаны «нет данных», а не выводятся как None (ТЗ на редизайн, §9)."""
+    at = run_view(view)
+    for df in (d.value for d in at.dataframe):
+        if hasattr(df, "isna") and len(df) > 5:  # таблицы данных (не служебные сводки)
+            assert not df.isna().any().any(), list(df.columns[df.isna().any()])
+
+
+def test_assortment_groups_tab_uses_existing_thresholds():
+    at = run_view("assortment")
+    labels = [m.label for m in at.metric]
+    assert "Основные источники выручки" in labels and "Высокая доля списаний" in labels

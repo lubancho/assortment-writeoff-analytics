@@ -1,17 +1,19 @@
-"""Экран «Обзор бизнеса»: ключевые показатели, динамика, сравнение точек."""
+"""Главная: что происходит с продажами и на что обратить внимание (документ 09, раздел 3)."""
 
 from __future__ import annotations
 
 from datetime import timedelta
 
+import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 from components import ui
 
 from asa import metrics, queries
+from asa import recommendations as rec
 from asa import repository as repo
 
-ui.page_header("Обзор бизнеса", ui.period_caption())
+ui.page_header("Что происходит с продажами", ui.period_caption())
 d0, d1 = ui.current_period()
 stores = ui.current_stores()
 
@@ -40,65 +42,148 @@ def daily(d0, d1):
 
 
 length = (d1 - d0).days + 1
-cur, prev = (
-    sales(d0, d1, stores).iloc[0],
-    sales(d0 - timedelta(days=length), d0 - timedelta(days=1), stores).iloc[0],
-)
-wo, wo_prev = (
-    write_offs(d0, d1, stores).iloc[0],
-    write_offs(d0 - timedelta(days=length), d0 - timedelta(days=1), stores).iloc[0],
-)
+p0, p1 = d0 - timedelta(days=length), d0 - timedelta(days=1)
+period = ui.cached_period()
+has_prev = period is not None and p0 >= period[0]
+cur = sales(d0, d1, stores).iloc[0]
+prev = sales(p0, p1, stores).iloc[0] if has_prev else None
+wo = write_offs(d0, d1, stores).iloc[0]
+wo_prev = write_offs(p0, p1, stores).iloc[0] if has_prev else None
+ws = metrics.write_off_share(wo.write_off_cost, cur.cogs)
+ws_prev = metrics.write_off_share(wo_prev.write_off_cost, prev.cogs) if has_prev else None
 NOTE = "к предыдущему периоду той же длины"
 
 
 def delta(a, b):
+    if b is None:
+        return None
     r = metrics.safe_ratio(metrics.D(a) - metrics.D(b), abs(metrics.D(b))) if b else None
     return None if r is None else ui.fmt_pct(r, signed=True)
 
 
-k = st.columns(6)
+dm = (
+    cur.gross_margin - prev.gross_margin
+    if has_prev and cur.gross_margin and prev.gross_margin
+    else None
+)
+where = "по выбранным точкам" if stores else "по сети"
+summary = f"За {length} дн. {where} выручка **{ui.fmt_rub(cur.revenue)}**"
+if has_prev:
+    summary += f" ({delta(cur.revenue, prev.revenue)})"
+summary += f", валовая маржинальность **{ui.fmt_pct(cur.gross_margin)}**"
+if dm is not None:
+    summary += f" ({ui.fmt_pp(dm)})"
+summary += f". В списание ушло **{ui.fmt_rub(wo.write_off_cost)}** — {ui.fmt_pct(ws)} себестоимости выпуска."
+st.markdown(summary)
+
+ui.level(
+    "Состояние",
+    "Основные показатели",
+    f"Изменение — к предыдущим {length} дн. ({p0:%d.%m.%Y} — {p1:%d.%m.%Y}); зелёный — лучше для бизнеса "
+    "(рост списаний — красный)."
+    if has_prev
+    else "Для выбранного периода нет предыдущего периода той же длины — сравнение не показывается.",
+)
+k = [*st.columns(3), *st.columns(3)]
 k[0].metric(
-    "Выручка", ui.fmt_rub(cur.revenue), delta(cur.revenue, prev.revenue), delta_description=NOTE
+    "Выручка",
+    ui.fmt_rub(cur.revenue),
+    delta(cur.revenue, prev.revenue if has_prev else None),
+    delta_description=NOTE,
+    help=ui.HELP["rev"],
 )
 k[1].metric(
     "Валовая прибыль",
     ui.fmt_rub(cur.gross_profit),
-    delta(cur.gross_profit, prev.gross_profit),
+    delta(cur.gross_profit, prev.gross_profit if has_prev else None),
     delta_description=NOTE,
+    help=ui.HELP["gp"],
 )
 k[2].metric(
     "Маржинальность",
     ui.fmt_pct(cur.gross_margin),
-    ui.fmt_pp(cur.gross_margin - prev.gross_margin)
-    if cur.gross_margin and prev.gross_margin
-    else None,
+    ui.fmt_pp(dm) if dm is not None else None,
     delta_description=NOTE,
-    help="Валовая прибыль / выручка (по строкам с известной себестоимостью)",
+    help=ui.HELP["mg"],
 )
 k[3].metric(
     "Стоимость списаний",
     ui.fmt_rub(wo.write_off_cost),
-    delta(wo.write_off_cost, wo_prev.write_off_cost),
+    delta(wo.write_off_cost, wo_prev.write_off_cost if has_prev else None),
     delta_color="inverse",
     delta_description=NOTE,
-    help="Списания по себестоимости на дату списания",
+    help=ui.HELP["wo"],
 )
 k[4].metric(
-    "Активные SKU",
-    ui.fmt_num(active_skus(d0, d1, stores)),
-    "из 150",
-    delta_color="off",
-    delta_arrow="off",
-    help="Товары с чистыми продажами больше нуля за период",
+    "Доля списаний",
+    ui.fmt_pct(ws),
+    ui.fmt_pp(ws - ws_prev) if ws is not None and ws_prev is not None else None,
+    delta_color="inverse",
+    delta_description=NOTE,
+    help=ui.HELP["ws"],
 )
 k[5].metric(
     "Средний чек",
     ui.fmt_rub(cur.avg_check),
-    delta(cur.avg_check, prev.avg_check),
+    delta(cur.avg_check, prev.avg_check if has_prev else None),
     delta_description=NOTE,
-    help="Выручка / число чеков. Чек — заказ, в котором есть неотменённая продажа",
+    help=ui.HELP["check"],
 )
 
+# --- Что требует внимания -----------------------------------------------------------------------
+ui.level(
+    "Внимание", "Что требует внимания", "Только факты из данных. «Открыть» — перейти к деталям."
+)
+by_store = sales(d0, d1, None, "store")
+wo_store = write_offs(d0, d1, None, "store")
+tbl = by_store.merge(wo_store[["store_id", "write_off_cost"]], on="store_id", how="left")
+tbl["write_off_share"] = [
+    metrics.write_off_share(w, c) for w, c in zip(tbl["write_off_cost"], tbl["cogs"], strict=True)
+]
+net = sales(d0, d1, None).iloc[0]
+net_ws = metrics.write_off_share(write_offs(d0, d1, None).iloc[0].write_off_cost, net.cogs)
+tbl["d_margin"] = [None if m is None else m - net.gross_margin for m in tbl["gross_margin"]]
+tbl["d_ws"] = [None if w is None else w - net_ws for w in tbl["write_off_share"]]
+recs = rec.build(ui.product_analysis())
+items = []
+high = recs[recs["severity"] == "Высокая"]
+if len(high):
+    parts = high["rule"].value_counts()
+    items.append(
+        dict(lvl="crit", title="Задачи высокой важности", value=f"{len(high)} задач",
+             why="; ".join(f"{rec.RULE_TITLES[r].lower()} — {n}" for r, n in parts.items())
+             + ". Задачи — по сети за выбранный период.",
+             page="views/recommendations.py", state={"rc_preset_sev": ["Высокая"]}))  # fmt: skip
+if has_prev and wo.write_off_cost > wo_prev.write_off_cost:
+    items.append(
+        dict(lvl="warn", title="Списания выросли", value=delta(wo.write_off_cost, wo_prev.write_off_cost),
+             why=f"{ui.fmt_rub(wo.write_off_cost)} против {ui.fmt_rub(wo_prev.write_off_cost)} за предыдущий период.",
+             page="views/stock.py"))  # fmt: skip
+if not stores and len(tbl):
+    w = tbl.sort_values("d_ws", ascending=False).iloc[0]
+    if w["d_ws"] is not None and w["d_ws"] > 0:
+        items.append(
+            dict(lvl="warn", title=f"Самая высокая доля списаний — {w['store_name']}",
+                 value=ui.fmt_pp(w["d_ws"]) + " к сети",
+                 why=f"{ui.fmt_pct(w['write_off_share'])} при {ui.fmt_pct(net_ws)} по сети; "
+                 f"списано {ui.fmt_rub(w['write_off_cost'])}.",
+                 page="views/stock.py", state={"stores": [int(w["store_id"])]}))  # fmt: skip
+    m = tbl.sort_values("d_margin").iloc[0]
+    if m["d_margin"] is not None and m["d_margin"] < 0:
+        items.append(
+            dict(lvl="warn", title=f"Самая низкая маржа — {m['store_name']}",
+                 value=ui.fmt_pp(m["d_margin"]) + " к сети",
+                 why=f"{ui.fmt_pct(m['gross_margin'])} при {ui.fmt_pct(net.gross_margin)} по сети. Возможные "
+                 "факторы — структура продаж, скидки, себестоимость (не установлено).",
+                 page="views/profitability.py", state={"stores": [int(m["store_id"])]}))  # fmt: skip
+if dm is not None and dm < 0:
+    items.append(
+        dict(lvl="info", title="Маржинальность снизилась", value=ui.fmt_pp(dm),
+             why="Товары, у которых прибыль падает при росте выручки, — в задачах (правило R5).",
+             page="views/recommendations.py", state={"rc_preset_rule": ["R5"]}))  # fmt: skip
+ui.attention(items, "ov_attn")
+
+ui.level("Подробно", "Динамика и сравнение")
 g1, g2 = st.columns([7, 5])
 with g1:
     dd = ui.to_display(daily(d0, d1))
@@ -115,7 +200,7 @@ with g1:
         name="Скользящая средняя за 7 дней",
         line={"color": ui.PALETTE["accent"], "width": 2.5},
     )
-    fig.update_layout(title="Динамика выручки сети, ₽", height=340, yaxis_tickformat=",.0f")
+    fig.update_layout(title="Выручка сети по дням, ₽", height=340, yaxis_tickformat=",.0f")
     fig.update_xaxes(tickformat="%d.%m", hoverformat="%d.%m.%Y")
     st.plotly_chart(fig, width="stretch")
     if stores:
@@ -140,7 +225,7 @@ with g2:
         marker_color=ui.PALETTE["accent"],
     )
     fig.update_layout(
-        title="Вклад категорий, %",
+        title="Какие категории приносят выручку и прибыль, %",
         height=340,
         barmode="group",
         xaxis_ticksuffix="%",
@@ -148,50 +233,43 @@ with g2:
     )
     st.plotly_chart(fig, width="stretch")
 
-st.subheader("Сравнение торговых точек")
-by_store = sales(d0, d1, None, "store")
-wo_store = write_offs(d0, d1, None, "store")
-tbl = by_store.merge(wo_store[["store_id", "write_off_cost"]], on="store_id", how="left")
-tbl["write_off_share"] = [
-    metrics.write_off_share(w, c) for w, c in zip(tbl["write_off_cost"], tbl["cogs"], strict=True)
-]
-show = ui.to_display(tbl)
+st.markdown("**Точки: продажи, маржа и списания** — отклонения к сети, процентные пункты")
+show = pd.DataFrame(
+    {
+        "Точка": tbl["store_name"],
+        "Выручка, ₽": tbl["revenue"],
+        "Маржа": tbl["gross_margin"],
+        "Маржа к сети": tbl["d_margin"],
+        "Списания, ₽": tbl["write_off_cost"],
+        "Доля списаний": tbl["write_off_share"],
+        "Списания к сети": tbl["d_ws"],
+        "Средний чек, ₽": tbl["avg_check"],
+    }
+).sort_values(
+    "Списания к сети",
+    ascending=False,
+    key=lambda s: s.map(lambda v: float(v) if v is not None else -9),
+)
+fmts = {
+    "Выручка, ₽": "rub",
+    "Маржа": "pct",
+    "Маржа к сети": "pp",
+    "Списания, ₽": "rub",
+    "Доля списаний": "pct",
+    "Списания к сети": "pp",
+    "Средний чек, ₽": "rub",
+}
 st.dataframe(
-    show.assign(
-        gross_margin=ui.pct_col(tbl["gross_margin"]),
-        write_off_share=ui.pct_col(tbl["write_off_share"]),
-        revenue_share=show["revenue"] / show["revenue"].sum() * 100,
-    )[
-        [
-            "store_name",
-            "revenue",
-            "revenue_share",
-            "gross_profit",
-            "gross_margin",
-            "orders",
-            "avg_check",
-            "write_off_cost",
-            "write_off_share",
-        ]
-    ].sort_values("revenue", ascending=False),
+    ui.styled(show, fmts),
     hide_index=True,
     width="stretch",
     column_config={
-        "store_name": "Точка",
-        "revenue": st.column_config.NumberColumn("Выручка, ₽", format="localized"),
-        "revenue_share": st.column_config.ProgressColumn(
-            "Доля в выручке",
-            format="%.1f%%",
-            min_value=0,
-            max_value=float(show["revenue"].max() / show["revenue"].sum() * 100),
+        **ui.num_cfg(fmts),
+        "Маржа к сети": st.column_config.TextColumn(
+            help="Плюс — маржа выше сети (лучше)", alignment="right"
         ),
-        "gross_profit": st.column_config.NumberColumn("Валовая прибыль, ₽", format="localized"),
-        "gross_margin": st.column_config.NumberColumn("Маржа, %", format="%.1f"),
-        "orders": st.column_config.NumberColumn("Чеков", format="localized"),
-        "avg_check": st.column_config.NumberColumn("Средний чек, ₽", format="%.0f"),
-        "write_off_cost": st.column_config.NumberColumn("Списания, ₽", format="localized"),
-        "write_off_share": st.column_config.NumberColumn(
-            "Доля списаний, %", format="%.1f", help="Списания / (себестоимость продаж + списания)"
+        "Списания к сети": st.column_config.TextColumn(
+            help="Плюс — доля списаний выше сети (хуже)", alignment="right"
         ),
     },
 )
