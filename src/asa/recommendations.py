@@ -42,7 +42,7 @@ def _pct(x) -> str:
 
 def _pp(x) -> str:
     """Разница долей в процентных пунктах: 0,15 → «15 п. п.»."""
-    return f"{float(x) * 100:g} п. п.".replace(".", ",")
+    return f"{float(x) * 100:g}".replace(".", ",") + " п. п."
 
 
 def _rub(x) -> str:

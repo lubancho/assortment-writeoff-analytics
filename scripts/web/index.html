@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Продажи, ассортимент и списания — демо</title>
+<meta name="description" content="Интерактивный демо-дашборд: продажи, ABC/XYZ, прибыльность, остатки и списания, рекомендации. Синтетические данные.">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%234536a8'/%3E%3Ctext x='16' y='21' font-size='12' font-family='Arial' font-weight='700' fill='%23fff' text-anchor='middle'%3EABC%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="common.css">
+</head>
+<body>
+<div class="app">
+<aside>
+  <div class="brand"><div class="logo">АС</div><div><div class="t">Продажи, ассортимент и&nbsp;списания</div><div class="k">Демо · портфолио аналитика</div></div></div>
+  <button class="nav" data-view="overview"><span class="ic">1</span>Обзор бизнеса</button>
+  <button class="nav" data-view="assortment"><span class="ic">2</span>Ассортимент ABC/XYZ</button>
+  <button class="nav" data-view="profit"><span class="ic">3</span>Прибыльность</button>
+  <button class="nav" data-view="stock"><span class="ic">4</span>Остатки и списания</button>
+  <button class="nav" data-view="recs"><span class="ic">5</span>Рекомендации<span class="cnt bad" id="cnt-recs"></span></button>
+  <button class="nav" data-view="reports"><span class="ic">6</span>Отчёты SQL<span class="cnt">10</span></button>
+  <div class="side-foot">
+    <b>Канаева Любовь</b>
+    <span>Учебный проект бизнес-аналитика</span>
+    <a href="https://github.com/lubancho/assortment-writeoff-analytics" target="_blank" rel="noopener">Код и документация на GitHub →</a>
+    <span>Данные синтетические.</span>
+    <button class="theme-btn"><svg class="i" viewBox="0 0 24 24"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg><span class="theme-label">Тёмная тема</span></button>
+  </div>
+</aside>
+
+<main>
+  <div class="filterbar" id="filterbar">
+    <div class="seg" id="f-period"></div>
+    <select class="sel" id="f-store"></select>
+    <div class="chips" id="f-cats"></div>
+    <span class="sp"></span>
+    <div class="chips" id="f-active"></div>
+  </div>
+
+  <!-- 1. Обзор -->
+  <section class="view" id="v-overview">
+    <div class="eyebrow"><span class="dot"></span>Демо · сеть суши-маркетов · 15 точек · 150 позиций · <span id="ov-period"></span></div>
+    <h1>Продажи, ассортимент <em>и&nbsp;списания</em></h1>
+    <p class="lead">Что продаётся, что зарабатывает, что уходит в списание. <b>Нажимайте на сегменты, точки и столбцы</b> —
+      все экраны отфильтруются по точке или категории.</p>
+    <div class="rule"></div>
+    <div class="grid g-kpi" id="kpis"></div>
+    <div class="grid g-73 mt">
+      <div class="card"><div class="card-head"><h3>Выручка и списания по дням</h3><span class="hint" id="trend-hint"></span></div><div class="chart tall" id="c-trend"></div></div>
+      <div class="card"><div class="card-head"><h3>Вклад категорий</h3><span class="hint">клик — фильтр</span></div><div class="chart tall" id="c-cats"></div></div>
+    </div>
+    <div class="grid g-2 mt">
+      <div class="card"><div class="card-head"><h3>Точки: маржа и списания</h3><span class="hint">размер — выручка · клик — фильтр</span></div><div class="chart tall" id="c-stores"></div></div>
+      <div class="card"><div class="card-head"><h3>Доля в выручке и в прибыли</h3><span class="hint">где выручка не превращается в прибыль</span></div><div class="chart tall" id="c-share"></div></div>
+    </div>
+  </section>
+
+  <!-- 2. Ассортимент -->
+  <section class="view" id="v-assortment">
+    <div class="eyebrow"><span class="dot"></span><span id="as-eyebrow"></span></div>
+    <h1>Ассортимент: <em>ABC и XYZ</em></h1>
+    <p class="lead">ABC — вклад товара в выручку или прибыль за выбранный период, XYZ — стабильность недельного спроса за
+      последние <span id="xyz-w"></span> полных недель. <b>Нажмите на класс или клетку матрицы</b> — список отфильтруется; на товар — откроется его спрос.</p>
+    <div class="rule"></div>
+    <div class="grid g-kpi" id="abc-kpis"></div>
+    <div class="grid g-73 mt">
+      <div class="card"><div class="card-head"><h3>Кривая Парето</h3><div class="seg" id="abc-by"></div></div><div class="chart tall" id="c-pareto"></div></div>
+      <div class="card"><div class="card-head"><h3>Матрица ABC × XYZ</h3><span class="hint">товаров · клик — фильтр</span></div><div class="chart tall" id="c-matrix"></div></div>
+    </div>
+    <div class="card mt"><div class="chips" id="as-chips" style="margin-bottom:10px"></div><div id="t-prods"></div></div>
+  </section>
+
+  <!-- 3. Прибыльность -->
+  <section class="view" id="v-profit">
+    <div class="eyebrow"><span class="dot ok"></span><span id="pf-eyebrow"></span></div>
+    <h1>Прибыльность <em>товаров и точек</em></h1>
+    <p class="lead">Каждая точка на графике — товар: правее — больше выручка, выше — выше маржа. <b>Нажмите на товар</b>, чтобы открыть карточку.</p>
+    <div class="rule"></div>
+    <div class="card"><div class="card-head"><h3>Товары: выручка и маржинальность</h3><span class="hint">размер — валовая прибыль</span></div><div class="chart tall" id="c-scatter" style="height:460px"></div></div>
+    <div class="grid g-2 mt">
+      <div class="card"><div class="card-head"><h3>Маржинальность категорий</h3><span class="hint">клик — фильтр</span></div><div class="chart" id="c-catm"></div></div>
+      <div class="card"><div class="card-head"><h3>Точки: отклонение маржи от сети</h3><span class="hint">п. п. · клик — фильтр</span></div><div class="chart" id="c-stdev" style="height:400px"></div></div>
+    </div>
+    <div class="card mt"><div class="card-head"><h3>Проблемные позиции</h3><span class="hint" id="pf-hint"></span></div><div id="t-problems"></div></div>
+  </section>
+
+  <!-- 4. Остатки и списания -->
+  <section class="view" id="v-stock">
+    <div class="eyebrow"><span class="dot warn"></span><span id="st-eyebrow"></span></div>
+    <h1>Остатки <em>и списания</em></h1>
+    <p class="lead">Доля списаний считается от себестоимости выпуска (продано + списано). <b>Нажмите на причину</b> — графики покажут только её.</p>
+    <div class="rule"></div>
+    <div class="grid g-kpi" id="st-kpis"></div>
+    <div class="grid g-46 mt">
+      <div class="card"><div class="card-head"><h3>Причины списаний</h3><span class="hint">клик — фильтр</span></div><div class="chart" id="c-reasons"></div></div>
+      <div class="card"><div class="card-head"><h3>Списания по дням и причинам</h3></div><div class="chart" id="c-woday"></div></div>
+    </div>
+    <div class="grid g-2 mt">
+      <div class="card"><div class="card-head"><h3>Доля списаний по категориям</h3><span class="hint">клик — фильтр</span></div><div class="chart" id="c-wocat"></div></div>
+      <div class="card"><div class="card-head"><h3>Доля списаний по точкам</h3><span class="hint">клик — фильтр</span></div><div class="chart" id="c-wost" style="height:400px"></div></div>
+    </div>
+    <div class="card mt"><div class="card-head"><h3>Товары с отклонениями</h3><span class="hint">за последние 28 дней · по сети</span></div><div class="chips" id="st-chips" style="margin-bottom:10px"></div><div id="t-wo"></div></div>
+  </section>
+
+  <!-- 5. Рекомендации -->
+  <section class="view" id="v-recs">
+    <div class="eyebrow"><span class="dot bad"></span><span id="rc-eyebrow"></span></div>
+    <h1>Рекомендации <em>что проверить</em></h1>
+    <p class="lead">Правила R1–R5 говорят, что проверить, и не утверждают причину. Ни одно правило не предлагает вывести товар
+      только по классу ABC/XYZ. <b>Нажмите на карточку</b> — откроется спрос и показатели товара.</p>
+    <div class="rule"></div>
+    <div class="grid g-kpi" id="rc-kpis"></div>
+    <div class="card mt"><div class="eyebrow"><span class="dot"></span>Правило</div><div class="chips" id="rc-rules"></div></div>
+    <div class="grid g-2 mt" id="rc-list"></div>
+    <div class="tbl-foot" id="rc-more"></div>
+  </section>
+
+  <!-- 6. Отчёты SQL -->
+  <section class="view" id="v-reports">
+    <div class="eyebrow"><span class="dot"></span><span id="rp-eyebrow"></span></div>
+    <h1>Отчёты <em>на SQL</em></h1>
+    <p class="lead">Результаты 10 SQL-запросов проекта (PostgreSQL) за последние 28 дней с параметрами по умолчанию.
+      Под каждым — документация запроса и его текст. Названия колонок — как в SQL.</p>
+    <div class="rule"></div>
+    <div id="sql-list"></div>
+    <div class="card mt"><div class="card-head"><h3>Проверки качества исходных данных</h3><span class="hint">строки с ошибками не попадают в расчёты</span></div><div id="t-dq"></div></div>
+  </section>
+
+  <div class="foot" id="foot"></div>
+</main>
+</div>
+
+<div class="drawer-bg" id="drawer-bg"></div>
+<div class="drawer" id="drawer"><button class="close" aria-label="Закрыть">×</button><div id="drawer-body"></div></div>
+
+<script src="echarts.min.js"></script>
+<script src="data.js"></script>
+<script src="common.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

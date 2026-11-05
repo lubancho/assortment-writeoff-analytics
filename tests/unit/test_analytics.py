@@ -335,3 +335,9 @@ def test_every_recommendation_has_all_required_fields():
     for col in ("problem", "basis", "value", "possible_cause", "action", "limitations"):
         assert r[col].map(lambda s: isinstance(s, str) and len(s) > 5).all(), col
     assert r["severity"].tolist() == sorted(r["severity"], key=recommendations.SEVERITY_ORDER.get)
+
+
+def test_percentage_points_text_keeps_dots_in_unit():
+    # Регрессия: замена «.» на «,» портила единицу измерения («5 п, п,»).
+    assert recommendations._pp(Dec("0.05")) == "5 п. п."
+    assert recommendations._pp(Dec("0.125")) == "12,5 п. п."
