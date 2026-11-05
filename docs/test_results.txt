@@ -1,0 +1,117 @@
+# Фактический результат запуска тестов
+# Дата: 2026-11-05 12:36 +06; Python 3.12.13; PostgreSQL 16.15 (локально, без Docker)
+# Команда: uv run pytest -v --cov (TEST_DATABASE_URL из .env)
+
+============================= test session starts ==============================
+platform linux -- Python 3.12.13, pytest-9.2.0, pluggy-1.7.0 -- .venv/bin/python
+rootdir: /home/claude/assortment-writeoff-analytics
+configfile: pyproject.toml
+testpaths: tests
+plugins: anyio-4.16.0, cov-7.1.0
+collecting ... collected 77 items
+
+tests/integration/test_database.py::test_migrations_are_idempotent PASSED [  1%]
+tests/integration/test_database.py::test_every_sql_task_runs_and_is_documented[1] PASSED [  2%]
+tests/integration/test_database.py::test_every_sql_task_runs_and_is_documented[2] PASSED [  3%]
+tests/integration/test_database.py::test_every_sql_task_runs_and_is_documented[3] PASSED [  5%]
+tests/integration/test_database.py::test_every_sql_task_runs_and_is_documented[4] PASSED [  6%]
+tests/integration/test_database.py::test_every_sql_task_runs_and_is_documented[5] PASSED [  7%]
+tests/integration/test_database.py::test_every_sql_task_runs_and_is_documented[6] PASSED [  9%]
+tests/integration/test_database.py::test_every_sql_task_runs_and_is_documented[7] PASSED [ 10%]
+tests/integration/test_database.py::test_every_sql_task_runs_and_is_documented[8] PASSED [ 11%]
+tests/integration/test_database.py::test_every_sql_task_runs_and_is_documented[9] PASSED [ 12%]
+tests/integration/test_database.py::test_every_sql_task_runs_and_is_documented[10] PASSED [ 14%]
+tests/integration/test_database.py::test_sql_tasks_add_up_to_network_totals PASSED [ 15%]
+tests/integration/test_database.py::test_sql_and_python_totals_match PASSED [ 16%]
+tests/integration/test_database.py::test_store_margin_uses_ratio_of_sums PASSED [ 18%]
+tests/integration/test_database.py::test_abc_sql_matches_python[revenue] PASSED [ 19%]
+tests/integration/test_database.py::test_abc_sql_matches_python[gross_profit] PASSED [ 20%]
+tests/integration/test_database.py::test_write_off_cost_sql_matches_python PASSED [ 22%]
+tests/integration/test_database.py::test_returns_and_cancellations_in_database PASSED [ 23%]
+tests/integration/test_database.py::test_stock_balance_and_sold_out_flag PASSED [ 24%]
+tests/integration/test_database.py::test_products_without_sales_distinguishes_unavailability PASSED [ 25%]
+tests/integration/test_database.py::test_product_analysis_is_consistent_with_sql PASSED [ 27%]
+tests/integration/test_database.py::test_previous_period_outside_data_is_not_compared PASSED [ 28%]
+tests/integration/test_database.py::test_short_history_xyz_window_is_fixed PASSED [ 29%]
+tests/ui/test_screens.py::test_view_renders_without_errors[overview] PASSED [ 31%]
+tests/ui/test_screens.py::test_view_renders_without_errors[assortment] PASSED [ 32%]
+tests/ui/test_screens.py::test_view_renders_without_errors[profitability] PASSED [ 33%]
+tests/ui/test_screens.py::test_view_renders_without_errors[stock] PASSED [ 35%]
+tests/ui/test_screens.py::test_view_renders_without_errors[recommendations] PASSED [ 36%]
+tests/ui/test_screens.py::test_view_renders_without_errors[reports] PASSED [ 37%]
+tests/ui/test_screens.py::test_view_renders_with_store_filter_and_long_period[overview] PASSED [ 38%]
+tests/ui/test_screens.py::test_view_renders_with_store_filter_and_long_period[assortment] PASSED [ 40%]
+tests/ui/test_screens.py::test_view_renders_with_store_filter_and_long_period[profitability] PASSED [ 41%]
+tests/ui/test_screens.py::test_view_renders_with_store_filter_and_long_period[stock] PASSED [ 42%]
+tests/ui/test_screens.py::test_view_renders_with_store_filter_and_long_period[recommendations] PASSED [ 44%]
+tests/ui/test_screens.py::test_view_renders_with_store_filter_and_long_period[reports] PASSED [ 45%]
+tests/ui/test_screens.py::test_overview_numbers_match_sql PASSED         [ 46%]
+tests/ui/test_screens.py::test_assortment_threshold_validation PASSED    [ 48%]
+tests/ui/test_screens.py::test_reports_switch_sql_task PASSED            [ 49%]
+tests/unit/test_analytics.py::test_abc_boundary_item_stays_in_higher_class PASSED [ 50%]
+tests/unit/test_analytics.py::test_abc_ties_sorted_by_product_id PASSED  [ 51%]
+tests/unit/test_analytics.py::test_abc_zero_and_negative_contribution_go_to_c_and_are_not_in_denominator PASSED [ 53%]
+tests/unit/test_analytics.py::test_abc_custom_thresholds_and_validation PASSED [ 54%]
+tests/unit/test_analytics.py::test_abc_revenue_and_profit_classes_can_differ PASSED [ 55%]
+tests/unit/test_analytics.py::test_abc_summary_sums_to_total PASSED      [ 57%]
+tests/unit/test_analytics.py::test_cv_formula_and_classes PASSED         [ 58%]
+tests/unit/test_analytics.py::test_weeks_with_low_availability_are_excluded PASSED [ 59%]
+tests/unit/test_analytics.py::test_too_few_observations_and_no_sales_and_short_history PASSED [ 61%]
+tests/unit/test_analytics.py::test_detrend_reduces_cv_for_seasonal_trend PASSED [ 62%]
+tests/unit/test_analytics.py::test_full_weeks_inside_period PASSED       [ 63%]
+tests/unit/test_analytics.py::test_xyz_settings_validation PASSED        [ 64%]
+tests/unit/test_analytics.py::test_write_off_share_and_zero_denominator PASSED [ 66%]
+tests/unit/test_analytics.py::test_turnover_and_days_of_supply PASSED    [ 67%]
+tests/unit/test_analytics.py::test_no_stock_gives_none_not_zero PASSED   [ 68%]
+tests/unit/test_analytics.py::test_avg_check_requires_orders PASSED      [ 70%]
+tests/unit/test_analytics.py::test_returns_cancellations_and_avg_check_python PASSED [ 71%]
+tests/unit/test_analytics.py::test_write_off_cost_uses_cost_on_write_off_date PASSED [ 72%]
+tests/unit/test_analytics.py::test_contribution_with_negative_values PASSED [ 74%]
+tests/unit/test_analytics.py::test_rule_r1_high_revenue_low_margin PASSED [ 75%]
+tests/unit/test_analytics.py::test_rule_r2_stable_demand_frequent_absence PASSED [ 76%]
+tests/unit/test_analytics.py::test_rule_r3_write_offs_compared_within_category PASSED [ 77%]
+tests/unit/test_analytics.py::test_rule_r4_low_contribution_unstable_demand_never_suggests_removal PASSED [ 79%]
+tests/unit/test_analytics.py::test_rule_r5_profit_falls_while_revenue_grows PASSED [ 80%]
+tests/unit/test_analytics.py::test_every_recommendation_has_all_required_fields PASSED [ 81%]
+tests/unit/test_generator.py::test_same_seed_gives_identical_files PASSED [ 83%]
+tests/unit/test_generator.py::test_different_seed_gives_different_sales PASSED [ 84%]
+tests/unit/test_generator.py::test_volumes_match_specification PASSED    [ 85%]
+tests/unit/test_generator.py::test_reference_ids_are_fixed PASSED        [ 87%]
+tests/unit/test_generator.py::test_manifest_covers_all_error_types PASSED [ 88%]
+tests/unit/test_generator.py::test_stock_balance_holds PASSED            [ 89%]
+tests/unit/test_generator.py::test_no_sales_on_closed_days_or_unavailable_products PASSED [ 90%]
+tests/unit/test_generator.py::test_weekend_demand_is_higher PASSED       [ 92%]
+tests/unit/test_quality_export.py::test_duplicates_are_removed_and_logged PASSED [ 93%]
+tests/unit/test_quality_export.py::test_fk_range_and_discount_checks PASSED [ 94%]
+tests/unit/test_quality_export.py::test_missing_values_are_rejected PASSED [ 96%]
+tests/unit/test_quality_export.py::test_cost_and_price_checks PASSED     [ 97%]
+tests/unit/test_quality_export.py::test_missing_price_completeness_check PASSED [ 98%]
+tests/unit/test_quality_export.py::test_export_keeps_types PASSED        [100%]
+
+================================ tests coverage ================================
+_______________ coverage: platform linux, python 3.12.13-final-0 _______________
+
+Name                             Stmts   Miss  Cover
+----------------------------------------------------
+src/asa/__init__.py                  0      0   100%
+src/asa/abc.py                      48      0   100%
+src/asa/analysis.py                 54      1    98%
+src/asa/config.py                   29      3    90%
+src/asa/db.py                       49     11    78%
+src/asa/export.py                   75      9    88%
+src/asa/generator/__init__.py       25      0   100%
+src/asa/generator/errors.py         81      0   100%
+src/asa/generator/facts.py         253      1    99%
+src/asa/generator/reference.py      51      0   100%
+src/asa/loader.py                   67      3    96%
+src/asa/logging_setup.py            14     14     0%
+src/asa/metrics.py                  74      2    97%
+src/asa/migrate.py                  31      1    97%
+src/asa/quality.py                  91      2    98%
+src/asa/queries.py                  31      0   100%
+src/asa/recommendations.py          54      0   100%
+src/asa/repository.py               57      5    91%
+src/asa/xyz.py                      58      3    95%
+----------------------------------------------------
+TOTAL                             1142     55    95%
+======================== 77 passed in 97.17s (0:01:37) =========================
