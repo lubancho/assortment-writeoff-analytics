@@ -92,18 +92,13 @@ def test_reports_switch_sql_task():
     assert len(at.get("download_button")) >= 2
 
 
-def test_overview_has_hierarchy_and_attention_block():
+def test_overview_is_four_doors():
+    """Сводка — четыре плитки-«двери», каждая ведёт в разбор показателя; графиков и таблиц нет."""
     at = run_view("overview")
-    text = " ".join(m.value for m in at.markdown)
-    assert "Главные проблемы" in text
-    assert [m.label for m in at.metric] == [
-        "Выручка",
-        "Маржа",
-        "Потери на списаниях",
-        "Доля списаний",
-    ]
-    assert sum("class='ux-attn'" in m.value for m in at.markdown) <= 3
-    assert len(at.get("plotly_chart")) <= 1
+    assert [m.label for m in at.metric] == ["Выручка", "Маржа", "Списания", "Задачи на проверку"]
+    assert len(at.button) == 4
+    assert len(at.get("plotly_chart")) == 0
+    assert len(at.dataframe) == 0
 
 
 @pytest.mark.parametrize("view", ["overview", "assortment", "profitability", "stock"])

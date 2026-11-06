@@ -12,7 +12,8 @@ from components import ui
 from asa import metrics, queries
 from asa import repository as repo
 
-ui.page_header("Как продают точки", ui.period_caption() + " · отклонения — к среднему по сети")
+ui.crumbs(("Сводка", "views/overview.py"), ("Выручка по точкам", None))
+ui.page_header("Выручка по точкам", ui.period_caption() + " · отклонения — к среднему по сети")
 d0, d1 = ui.current_period()
 stores = ui.current_stores()
 
@@ -77,10 +78,8 @@ show = pd.DataFrame(
         "Выручка, ₽": tbl["revenue"],
         "Маржа": tbl["gross_margin"],
         "Маржа к сети": tbl["d_margin"],
-        "Списания, ₽": tbl["write_off_cost"],
         "Доля списаний": tbl["write_off_share"],
         "Списания к сети": tbl["d_ws"],
-        "Средний чек, ₽": tbl["avg_check"],
     }
 ).sort_values(
     "Списания к сети",
@@ -91,10 +90,8 @@ fmts = {
     "Выручка, ₽": "rub",
     "Маржа": "pct",
     "Маржа к сети": "pp",
-    "Списания, ₽": "rub",
     "Доля списаний": "pct",
     "Списания к сети": "pp",
-    "Средний чек, ₽": "rub",
 }
 st.dataframe(
     ui.styled(show, fmts),
@@ -110,6 +107,40 @@ st.dataframe(
         ),
     },
 )
+# --- Уровень 3: одна точка — категории, маржа и списания --------------------------------------
+names = dict(zip(tbl["store_id"], tbl["store_name"], strict=True)) if len(tbl) else {}
+if names:
+    si = st.selectbox("Открыть точку", list(names), format_func=names.get, key="sl_store")
+    cs = sales(d0, d1, [si], "category")
+    cw = write_offs(d0, d1, [si], "category")
+    c = cs.merge(cw[["category_id", "write_off_cost"]], on="category_id", how="left")
+    st.dataframe(
+        ui.styled(
+            pd.DataFrame(
+                {
+                    "Категория": c["category_name"],
+                    "Выручка, ₽": c["revenue"],
+                    "Маржа": c["gross_margin"],
+                    "Доля списаний": [
+                        metrics.write_off_share(w, g)
+                        for w, g in zip(c["write_off_cost"], c["cogs"], strict=True)
+                    ],
+                }
+            ).sort_values("Выручка, ₽", ascending=False),
+            {"Выручка, ₽": "rub", "Маржа": "pct", "Доля списаний": "pct"},
+        ),
+        hide_index=True,
+        width="stretch",
+        column_config=ui.num_cfg({"Выручка, ₽": "rub", "Маржа": "pct", "Доля списаний": "pct"}),
+    )
+    b1, b2, _ = st.columns([1.3, 1.6, 4])
+    if b1.button("Списания точки ›", type="primary"):
+        st.session_state["stores"] = [si]
+        st.switch_page("views/stock.py")
+    if b2.button("Маржа товаров точки ›"):
+        st.session_state["stores"] = [si]
+        st.switch_page("views/profitability.py")
+ui.link("views/assortment.py", "Какие товары дают выручку ›")
 with st.expander("Подробнее: выручка по дням и вклад категорий"):
     g1, g2 = st.columns([7, 5])
     with g1:

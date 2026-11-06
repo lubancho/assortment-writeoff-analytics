@@ -13,6 +13,7 @@ import plotly.graph_objects as go
 import plotly.io as pio
 import psycopg
 import streamlit as st
+from streamlit.errors import StreamlitPageNotFoundError
 
 from asa import analysis
 from asa import repository as repo
@@ -119,6 +120,14 @@ h1 {letter-spacing: -0.02em;}
   border-radius: 10px; padding: 10px 14px; margin: 4px 0 10px 0;}
 .asa-box.warn {border-left-color: #E9A800; background:#FFFBEA;}
 .asa-box.crit {border-left-color: #D93A52; background:#FDF0F2;}
+.ux-sep{color:#8a83b8;font-weight:700}
+.ux-here{font-weight:700;color:#1e1745;font-size:14px}
+[data-testid="stPageLink"] a{padding:0 !important}
+[data-testid="stPageLink"] p{font-weight:700;color:#6a52ee;font-size:14px}
+[data-testid="stVerticalBlockBorderWrapper"]:has([data-testid="stMetric"]) button[kind="tertiary"] p{color:#6a52ee;font-weight:800}
+[class*="st-key-tile_"] {background:#FFFFFF;border-radius:18px !important;border-top:4px solid #8b75ff !important;box-shadow:0 10px 30px rgba(69,54,168,.08);}
+[class*="st-key-tile_"] [data-testid="stMetric"] {border:0 !important;box-shadow:none !important;background:transparent !important;padding:0 !important;}
+[class*="st-key-tile_"] button p {color:#6a52ee;font-weight:800}
 </style>
 """
 
@@ -387,3 +396,47 @@ def to_display(df: pd.DataFrame) -> pd.DataFrame:
 def pct_col(s: pd.Series) -> pd.Series:
     """Доля → проценты для отображения в таблице."""
     return s.map(lambda v: float(v) * 100 if v is not None and not pd.isna(v) else None)
+
+
+# --- Путь вглубь: сводка → разбор → карточка (без меню в боковой панели) -----------------------
+def door(
+    col,
+    label: str,
+    value: str,
+    *,
+    delta: str | None = None,
+    note: str = "",
+    action: str = "Открыть",
+    page: str | None = None,
+    state: dict | None = None,
+    key: str,
+    help: str | None = None,
+    delta_color: str = "normal",
+) -> None:
+    """Плитка сводки — «дверь» в разбор показателя: число, сравнение и переход на следующий уровень."""
+    with col.container(border=True, key=f"tile_{key}"):
+        st.metric(label, value, delta, help=help, delta_color=delta_color)
+        st.caption(note or " ")
+        if page and st.button(f"{action} ›", key=key, type="tertiary"):
+            for k, v in (state or {}).items():
+                st.session_state[k] = v
+            st.switch_page(page)
+
+
+def link(page: str, label: str) -> None:
+    """Ссылка на страницу; вне приложения (например, в тестах отдельной страницы) — просто текст."""
+    try:
+        st.page_link(page, label=label)
+    except StreamlitPageNotFoundError:
+        st.markdown(label)
+
+
+def crumbs(*trail: tuple[str, str | None]) -> None:
+    """«Хлебные крошки»: где находится пользователь и как вернуться на уровень выше."""
+    with st.container(horizontal=True, gap="small", vertical_alignment="center"):
+        for label, page in trail:
+            if page:
+                link(page, label)
+                st.markdown("<span class='ux-sep'>›</span>", unsafe_allow_html=True)
+            else:
+                st.markdown(f"<span class='ux-here'>{label}</span>", unsafe_allow_html=True)

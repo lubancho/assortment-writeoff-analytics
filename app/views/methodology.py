@@ -8,8 +8,9 @@ from components import ui
 
 from asa import repository as repo
 
+ui.crumbs(("Сводка", "views/overview.py"), ("Справка", None))
 ui.page_header(
-    "Как считаются показатели",
+    "Справка",
     "Формулы, ABC/XYZ и правила задач; качество данных и журнал — в блоках «Подробнее».",
 )
 d0, d1 = ui.current_period()

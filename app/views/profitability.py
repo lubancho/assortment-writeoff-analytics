@@ -11,8 +11,9 @@ from asa import metrics, queries
 from asa import recommendations as rec
 from asa import repository as repo
 
+ui.crumbs(("Сводка", "views/overview.py"), ("Маржа товаров", None))
 ui.page_header(
-    "Где низкая маржа",
+    "Маржа товаров",
     "Категории, точки и товары с валовой маржинальностью ниже сети. Возможные факторы — гипотезы для "
     "проверки, а не установленные причины. Аренда, персонал и другие расходы не учитываются.",
 )

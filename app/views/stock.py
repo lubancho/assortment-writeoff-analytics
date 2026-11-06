@@ -12,7 +12,8 @@ from asa import metrics
 from asa import recommendations as rec
 from asa import repository as repo
 
-ui.page_header("Где теряем деньги на списаниях", ui.period_caption())
+ui.crumbs(("Сводка", "views/overview.py"), ("Списания", None))
+ui.page_header("Списания", ui.period_caption())
 ui.box(
     "<b>Как считается доля списаний.</b> <code>доля списаний = стоимость списаний / (себестоимость "
     "проданного + стоимость списаний)</code>. Знаменатель — себестоимость всего выпуска: и проданного, "

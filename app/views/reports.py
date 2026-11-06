@@ -14,8 +14,9 @@ from asa import repository as repo
 from asa.export import to_csv_bytes, to_xlsx_bytes
 from asa.report_catalog import COLUMNS, REPORTS
 
+ui.crumbs(("Сводка", "views/overview.py"), ("Отчёты", None))
 ui.page_header(
-    "Готовые отчёты",
+    "Отчёты",
     ui.period_caption()
     + " · готовые отчёты на частые вопросы: главные результаты, полная таблица, описание расчёта.",
 )

@@ -15,8 +15,11 @@ from asa import repository as repo
 from asa.analysis import XYZ_WEEKS
 from asa.xyz import full_weeks
 
+ui.crumbs(
+    ("Сводка", "views/overview.py"), ("Выручка по точкам", "views/sales.py"), ("Ассортимент", None)
+)
 ui.page_header(
-    "Какие товары тянут продажи",
+    "Ассортимент",
     "Товары разбиты на понятные группы; профессиональный анализ ABC/XYZ — в блоке «Подробнее». "
     "Класс — повод для анализа, а не основание выводить товар из ассортимента.",
 )

@@ -28,7 +28,12 @@ pages = {
         st.Page("views/methodology.py", title="Методика", icon=":material/menu_book:"),
     ],
 }
-nav = st.navigation(pages)
-# Боковая панель — только разделы; общие фильтры — в верхней строке.
-filter_bar()
+nav = st.navigation(pages, position="hidden")  # меню нет: переходы — со сводки вглубь
+# Верхняя строка: название (переход на сводку), общие фильтры, «Отчёты» и «Справка».
+top = st.columns([2.4, 6, 0.9, 0.9], vertical_alignment="center")
+top[0].page_link("views/overview.py", label="**Продажи и ассортимент**", icon=":material/home:")
+with top[1]:
+    filter_bar()
+top[2].page_link("views/reports.py", label="Отчёты")
+top[3].page_link("views/methodology.py", label="Справка")
 nav.run()

@@ -124,135 +124,115 @@ function buildFilters() {
   const per = $('#f-period');
   per.innerHTML = [[7, '7 дней'], [28, '28 дней'], [DAYS.length, `${DAYS.length} дней`]].map(([v, l]) => `<button data-v="${v}">${l}</button>`).join('');
   $$('button', per).forEach(b => b.onclick = () => State.set({days: +b.dataset.v}));
-  const sel = $('#f-store');
-  sel.innerHTML = '<option value="">Все точки</option>' + STORES.map(s => `<option value="${s.i}">${esc(s.name)}</option>`).join('');
-  sel.onchange = () => State.set({store: sel.value === '' ? null : +sel.value});
-  const cat = $('#f-cat');
-  cat.innerHTML = '<option value="">Все категории</option>' + CATS.map(c => `<option value="${c.i}">${esc(c.name)}</option>`).join('');
-  cat.onchange = () => State.set({cat: cat.value === '' ? null : +cat.value});
 }
-const view = () => (location.hash || '#overview').slice(1) || 'overview';
 function syncFilters() {
   $$('#f-period button').forEach(b => { const on = +b.dataset.v === State.s.days; b.classList.toggle('on', on); b.setAttribute('aria-pressed', on); });
-  $('#f-store').value = State.s.store ?? '';
-  $('#f-cat').value = State.s.cat ?? '';
   const act = [];
-  if (State.s.store != null) act.push(`<button class="chip af" data-x="store" aria-label="Снять фильтр: ${esc(STORES[State.s.store].name)}">${esc(STORES[State.s.store].name)} <span aria-hidden="true">×</span></button>`);
+  if (State.s.store != null) act.push(`<button class="chip af" data-x="store" aria-label="Снять фильтр: ${esc(STORES[State.s.store].name)}">${esc(STORES[State.s.store].short)} <span aria-hidden="true">×</span></button>`);
   if (State.s.cat != null) act.push(`<button class="chip af" data-x="cat" aria-label="Снять фильтр: ${esc(CATS[State.s.cat].name)}">${esc(CATS[State.s.cat].name)} <span aria-hidden="true">×</span></button>`);
-  if (act.length) act.push('<button class="link" data-x="all">Сбросить</button>');
   $('#f-active').innerHTML = act.join('');
-  $$('#f-active [data-x]').forEach(b => b.onclick = () => { const x = b.dataset.x; State.set(x === 'all' ? {store: null, cat: null} : {[x]: null}); });
-  // На экране видны только фильтры, которые на нём действуют; на обзоре — не больше двух.
-  const v = view(), show = (id, on) => { $(id).style.display = on ? '' : 'none'; };
-  const periodOn = ['overview', 'sales', 'assort', 'writeoffs', 'margin'].includes(v);
-  const storeOn = ['overview', 'sales', 'writeoffs', 'margin'].includes(v);
-  const catOn = ['tasks', 'sales', 'assort', 'writeoffs', 'margin'].includes(v);
-  show('#f-period', periodOn); show('#f-store', storeOn); show('#f-cat', catOn);
-  show('#filterbar', periodOn || storeOn || catOn || State.s.store != null || State.s.cat != null);
+  $$('#f-active [data-x]').forEach(b => b.onclick = () => State.set({[b.dataset.x]: null}));
+  // период виден только там, где он что-то меняет
+  $('#f-period').style.display = ['overview', 'sales', 'store', 'assort', 'writeoffs', 'margin'].includes(Route.v) ? '' : 'none';
 }
 const where = () => [State.s.store != null ? STORES[State.s.store].name : 'вся сеть', State.s.cat != null ? CATS[State.s.cat].name : 'все категории'].join(' · ');
-// бывшие вкладки → отдельные страницы
+
+/* ---------- Навигация: путь вглубь и «хлебные крошки» ---------- */
+const Route = {v: 'overview', si: null, from: null};
+const TITLE = {overview: 'Сводка', sales: 'Выручка по точкам', assort: 'Ассортимент', writeoffs: 'Списания', margin: 'Маржа товаров',
+  tasks: 'Задачи на проверку', reports: 'Отчёты', method: 'Справка'};
+function crumbsOf() {
+  const r = [['overview', 'Сводка']];
+  if (Route.v === 'store') r.push(['sales', TITLE.sales], [null, STORES[Route.si].short]);
+  else if (Route.v === 'assort') r.push(['sales', TITLE.sales], [null, TITLE.assort]);
+  else if (Route.from != null && ['writeoffs', 'margin'].includes(Route.v)) r.push(['sales', TITLE.sales], ['store:' + Route.from, STORES[Route.from].short], [null, TITLE[Route.v]]);
+  else if (Route.v !== 'overview') r.push([null, TITLE[Route.v]]);
+  return r;
+}
+function go(v, opt = {}) {
+  Route.v = v; Route.si = opt.si ?? (v === 'store' ? Route.si : null); Route.from = opt.from ?? null;
+  Nav.go(v, false);
+  history.replaceState(null, '', '#' + v + (v === 'store' ? '/' + Route.si : ''));
+  const cr = crumbsOf();
+  $('#crumbs').innerHTML = cr.length > 1 ? cr.map(([k, l], i) => i === cr.length - 1 ? `<span aria-current="page">${esc(l)}</span>`
+    : `<button class="link" data-go="${k}">${esc(l)}</button><span class="sep" aria-hidden="true">›</span>`).join('') : '';
+  bindGo($('#crumbs'));
+  syncFilters();
+  if (v === 'store') renderStore();
+}
+function bindGo(root = document) {
+  $$('[data-go]', root).forEach(b => b.onclick = () => {
+    const [v, a] = b.dataset.go.split(':');
+    v === 'store' ? go('store', {si: +a}) : go(v);
+  });
+}
+// бывшие вкладки и страницы → экраны новой структуры
 const PAGE = {tasks: 'tasks', losses: 'writeoffs', wodetail: 'writeoffs', margin: 'margin', pdetail: 'margin',
   sales: 'sales', assort: 'assort', reports: 'reports', method: 'method', problems: 'tasks', analytics: 'sales'};
-function goTo(v, tab) { Nav.go(PAGE[tab] || PAGE[v] || v); }
+function goTo(v, tab) { go(PAGE[tab] || PAGE[v] || v); }
+const chev = '<span class="chev" aria-hidden="true">›</span>';
 
-/* ---------- 1. Обзор: главный показатель → вывод → проблемы → подробности по запросу ---------- */
+/* ---------- Данные по точкам (общие для разбора) ---------- */
 function storeRows(rg) {
   const st = {...State.s, store: null};
   const sS = aggSales(rg, (d, s) => s, st), sW = aggWo(rg, (d, s) => s, st), net = totals(rg, st);
+  const pr = prevRange(), sP = pr ? aggSales(pr, (d, s) => s, st) : null;
   return {net, rows: STORES.map(s => {
     const a = sS.get(s.i); if (!a) return null;
-    const m = mg(a), w = sW.get(s.i)?.cost ?? 0, ws = woShare(w, a.cogs);
+    const m = mg(a), w = sW.get(s.i)?.cost ?? 0, ws = woShare(w, a.cogs), prev = sP?.get(s.i)?.rev;
     const bad = [];
     if (m < net.mg) bad.push('маржа ниже сети');
     if (ws > net.woShare) bad.push('списания выше сети');
-    return {si: s.i, name: s.name, rev: a.rev, mg: m, dmg: m - net.mg, wo: w, ws, dws: ws - net.woShare,
-      flag: bad.length === 2 ? '<span class="pill p-bad">Хуже по обоим</span>' : bad.length ? `<span class="pill p-warn">${bad[0] === 'маржа ниже сети' ? 'Маржа ниже' : 'Списания выше'}</span>` : '<span class="pill p-ok">Не хуже сети</span>'};
+    return {si: s.i, name: s.name, short: s.short, rev: a.rev, drev: prev ? ratio(a.rev - prev, prev) : null, mg: m, dmg: m - net.mg, wo: w, ws, dws: ws - net.woShare,
+      flag: bad.length === 2 ? '<span class="pill p-bad">Хуже по обоим</span>' : bad.length ? `<span class="pill p-warn">${bad[0] === 'маржа ниже сети' ? 'Маржа ниже' : 'Списания выше'}</span>` : '<span class="hint">не хуже сети</span>'};
   }).filter(Boolean)};
 }
-function problemItems(rg, cur, prev) {
-  // только факты из данных, по убыванию важности; на обзоре показываются первые три
-  const n = rg[1] - rg[0] + 1, items = [];
-  const high = RECS.filter(r => (State.s.cat == null || r.c === State.s.cat) && r.severity === 'Высокая');
-  if (high.length) {
-    const byRule = {}; high.forEach(r => byRule[r.rule] = (byRule[r.rule] || 0) + 1);
-    const main = Object.entries(byRule).sort((a, b) => b[1] - a[1])[0];
-    items.push({lvl: 'bad', t: `${high.length} товаров требуют проверки в первую очередь`,
-      why: `Чаще всего — «${D.rule_titles[main[0]].toLowerCase()}» (${main[1]}).`, go: () => { rcSev = 'Высокая'; rcRule = null; goTo('problems', 'tasks'); renderRecs(); }});
-  }
-  const {net, rows} = storeRows(rg);
-  if (prev && cur.wo > prev.wo) items.push({lvl: 'warn', t: `Потери на списаниях выросли до ${F.rubc(cur.wo)}`,
-    why: `Было ${F.rubc(prev.wo)} за предыдущие ${n} дн. Товары с наибольшими потерями — на странице «Списания».`, go: () => goTo('problems', 'losses')});
-  if (State.s.store == null && rows.length) {
-    const w = rows.slice().sort((a, b) => b.dws - a.dws)[0];
-    if (w.dws > 0) items.push({lvl: 'warn', t: `Больше всего списаний — ${w.name}`,
-      why: `${F.pct(w.ws)} выпуска уходит в списание при ${F.pct(net.woShare)} по сети.`, go: () => { State.set({store: w.si}); goTo('analytics', 'wodetail'); }});
-    const m = rows.slice().sort((a, b) => a.dmg - b.dmg)[0];
-    if (m.dmg < 0) items.push({lvl: 'warn', t: `Самая низкая маржа — ${m.name}`,
-      why: `${F.pct(m.mg)} при ${F.pct(net.mg)} по сети.`, go: () => { State.set({store: m.si}); goTo('problems', 'margin'); }});
-  }
-  if (prev && cur.mg < prev.mg) items.push({lvl: 'info', t: `Маржа снизилась на ${F.num1((prev.mg - cur.mg) * 100)} п. п.`,
-    why: 'Товары, у которых прибыль падает при росте выручки, — в задачах.', go: () => { rcSev = null; rcRule = 'R5'; goTo('problems', 'tasks'); renderRecs(); }});
-  return items;
-}
+
+/* ---------- Уровень 1. Сводка: одна фраза и четыре «двери» ---------- */
 function renderOverview() {
   const rg = range(), pr = prevRange(), cur = totals(rg), prev = totals(pr), n = rg[1] - rg[0] + 1;
-  $('#ov-period').textContent = `${periodText(rg)} · ${State.s.store != null ? STORES[State.s.store].name : 'вся сеть'}`;
-  const items = problemItems(rg, cur, prev);
-  $('#ov-verdict').innerHTML = `За ${n} дн. продано на <b>${F.rubc(cur.rev)}</b>${prev ? ` (${F.spct(ratio(cur.rev - prev.rev, prev.rev))} к прошлому периоду)` : ''},
-    в списание ушло <b>${F.rubc(cur.wo)}</b> — ${F.pct(cur.woShare)} всего выпуска. ${items.length ? `Главное сейчас: ${items[0].t.charAt(0).toLowerCase() + items[0].t.slice(1)}.` : ''}`;
-  const kpis = [
-    {k: 'rev', l: 'Выручка', h: HELP.rev, v: F.rubc(cur.rev), d: deltaPill(cur.rev, prev?.rev)},
-    {k: 'mg', l: 'Маржа', h: HELP.mg, v: F.pct(cur.mg), d: prev ? deltaPill(cur.mg, prev.mg, {kind: 'pp'}) : '', act: () => goTo('problems', 'margin')},
-    {k: 'wo', l: 'Потери на списаниях', h: HELP.wo, v: F.rubc(cur.wo), d: deltaPill(cur.wo, prev?.wo, {invert: true}), act: () => goTo('problems', 'losses')},
-    {k: 'ws', l: 'Доля списаний', h: HELP.ws, v: F.pct(cur.woShare), d: prev ? deltaPill(cur.woShare, prev.woShare, {kind: 'pp', invert: true}) : '', act: () => goTo('problems', 'losses')},
+  $('#ov-verdict').innerHTML = `За ${n} дн. продано на <b>${F.rubc(cur.rev)}</b>${prev ? ` (${F.spct(ratio(cur.rev - prev.rev, prev.rev))})` : ''}, в списание ушло <b>${F.rubc(cur.wo)}</b>.`;
+  const tasks = RECS.filter(r => State.s.cat == null || r.c === State.s.cat), high = tasks.filter(r => r.severity === 'Высокая').length;
+  const lowMg = PRODS.filter(p => p.rules.has('R1')).length;
+  const doors = [
+    {go: 'sales', l: 'Выручка', tip: HELP.rev, v: F.rubc(cur.rev), d: deltaPill(cur.rev, prev?.rev), n: pr ? 'к прошлому периоду' : '', a: 'По точкам'},
+    {go: 'margin', l: 'Маржа', tip: HELP.mg, v: F.pct(cur.mg), d: prev ? deltaPill(cur.mg, prev.mg, {kind: 'pp'}) : '', n: `высокая выручка при низкой марже: ${F.int(lowMg)}`, a: 'Какие товары'},
+    {go: 'writeoffs', l: 'Списания', tip: HELP.wo, v: F.rubc(cur.wo), d: prev ? deltaPill(cur.woShare, prev.woShare, {kind: 'pp', invert: true}) : '', n: `${F.pct(cur.woShare)} выпуска`, a: 'Где теряем', lvl: 'warn'},
+    {go: 'tasks', l: 'Задачи на проверку', tip: 'Задачи по 5 правилам: что проверить и почему. Задачи не утверждают причину.', v: F.int(high), n: `высокой важности · всего ${F.int(tasks.length)}`, a: 'Открыть', lvl: 'bad'},
   ];
-  $('#kpis').innerHTML = kpis.map(k => `<div class="card kpi plain ${k.act ? 'click' : ''}" data-k="${k.k}">
-    <div class="eyebrow">${k.l}${tip(k.h)}</div><div class="kpi-value">${k.v}</div>
-    <div class="kpi-foot">${k.d || ''}<span>${pr ? 'к прошлому периоду' : ''}</span></div></div>`).join('');
-  kpis.forEach(k => { if (k.act) clickable($(`[data-k="${k.k}"]`, $('#kpis')), e => { if (!e.target.closest('.tip')) k.act(); }); });
-  const top = items.slice(0, 3), LV = {bad: '--bad', warn: '--warn', info: '--vio'}, LP = {bad: ['p-bad', 'Важно'], warn: ['p-warn', 'Внимание'], info: ['p-vio', 'Информация']};
-  $('#attn-hint').textContent = items.length > 3 ? `показаны 3 из ${items.length}` : '';
-  $('#attn').innerHTML = top.length ? top.map((x, i) => `<button class="attn-item" data-i="${i}" style="--ac:var(${LV[x.lvl]})">
-      <span class="sevc"><span class="pill ${LP[x.lvl][0]}">${LP[x.lvl][1]}</span></span>
-      <span><span class="t">${x.t}</span><span class="why" style="display:block">${x.why}</span></span>
-      <span></span><span class="arr" aria-hidden="true">→</span></button>`).join('')
-    : '<div class="attn-ok">Существенных отклонений не найдено.</div>';
-  $$('#attn .attn-item').forEach(b => b.onclick = () => top[+b.dataset.i].go());
-  const nTasks = RECS.filter(r => State.s.cat == null || r.c === State.s.cat).length;
-  $('#cta-tasks').textContent = `Открыть список задач: ${F.int(nTasks)} →`;
-  $('#cta-tasks').onclick = () => { rcSev = null; rcRule = null; goTo('problems', 'tasks'); renderRecs(); };
-  $('#cta-losses').onclick = () => goTo('problems', 'losses');
-
-  const dIdx = []; for (let d = rg[0]; d <= rg[1]; d++) dIdx.push(d);
-  const daily = aggSales(rg, d => d), wday = aggWo(rg, d => d);
-  $('#trend-hint').textContent = 'столбцы — выручка, линия — списания (правая шкала)';
-  Charts.set('c-trend', () => ({
-    legend: {show: false}, grid: {left: 8, right: 8, top: 12, bottom: 4, containLabel: true}, tooltip: {trigger: 'axis'},
-    xAxis: Charts.axis('category', {data: dIdx.map(d => F.dshort(DAYS[d])), splitLine: {show: false}}),
-    yAxis: [Charts.axis('value', {axisLabel: {formatter: v => NF0.format(v / 1000) + ' тыс'}}),
-      Charts.axis('value', {splitLine: {show: false}, axisLabel: {formatter: v => NF0.format(v / 1000) + ' тыс'}})],
-    series: [
-      {name: 'Выручка', type: 'bar', data: dIdx.map(d => daily.get(d)?.rev ?? 0), barMaxWidth: 14, tooltip: {valueFormatter: F.rub}, itemStyle: {borderRadius: [4, 4, 0, 0], color: css('--c7')}},
-      {name: 'Списания', type: 'line', yAxisIndex: 1, data: dIdx.map(d => wday.get(d)?.cost ?? 0), smooth: true, symbol: 'none', lineStyle: {width: 2.5, color: css('--c3')}, tooltip: {valueFormatter: F.rub}},
-    ],
-  }));
+  $('#doors').innerHTML = doors.map((d, i) => `<button class="door ${d.lvl || ''}" data-i="${i}">
+    <span class="dl">${d.l}${tip(d.tip)}</span><span class="dv">${d.v}</span>
+    <span class="dn">${d.d || ''}<span>${d.n}</span></span><span class="da">${d.a} ${chev}</span></button>`).join('');
+  $$('#doors .door').forEach(b => b.onclick = e => {
+    if (e.target.closest('.tip')) return;
+    const d = doors[+b.dataset.i];
+    if (d.go === 'tasks') { rcSev = 'Высокая'; rcRule = null; renderRecs(); }
+    go(d.go);
+  });
 }
 
-/* ---------- 3. Аналитика: продажи и точки ---------- */
-let tStores;
+/* ---------- Уровень 2. Выручка по точкам ---------- */
+let tStores, showAllStores = false;
 function initSales() {
   tStores = new Table('t-stores', {
     cols: [{k: 'name', label: 'Точка', t: 'text'}, {k: 'rev', label: 'Выручка', t: 'rub'}, {k: 'mg', label: 'Маржа', t: 'pct', help: HELP.mg},
-      {k: 'dmg', label: 'Маржа к сети', t: 'pp', help: 'Разница маржинальности точки и сети, процентные пункты. Плюс — лучше сети.'},
-      {k: 'wo', label: 'Списания', t: 'rub', help: HELP.wo}, {k: 'ws', label: 'Доля списаний', t: 'pct', help: HELP.ws},
-      {k: 'dws', label: 'Списания к сети', t: 'pp', help: 'Разница доли списаний точки и сети. Плюс — хуже сети.'}, {k: 'flag', label: 'Оценка', t: 'html', help: 'Сравнение с сетью по марже и доле списаний'}],
-    rows: [], page: 15, sort: 'dws', onRow: r => State.set({store: State.s.store === r.si ? null : r.si}), csv: 'stores',
+      {k: 'dmg', label: 'Маржа к сети', t: 'pp', help: 'Плюс — лучше сети'}, {k: 'ws', label: 'Доля списаний', t: 'pct', help: HELP.ws},
+      {k: 'dws', label: 'Списания к сети', t: 'pp', help: 'Плюс — хуже сети'}],
+    rows: [], page: 15, sort: 'rev', onRow: r => go('store', {si: r.si}), csv: 'stores',
   });
 }
 function renderSales() {
-  const rg = range();
-  tStores.setRows(storeRows(rg).rows);
+  const rg = range(), {net, rows} = storeRows(rg);
+  tStores.setRows(rows);
+  const sts = rows.slice().sort((a, b) => b.rev - a.rev), worse = rows.filter(r => r.dmg < 0 && r.dws > 0);
+  $('#sl-verdict').innerHTML = sts.length ? `Больше всего продаёт ${esc(sts[0].short)}. Хуже сети и по марже, и по списаниям — <b>${worse.length} из ${rows.length}</b> точек.` : 'Нет продаж за период.';
+  const mx = Math.max(...sts.map(s => s.rev), 1), list = showAllStores ? sts : sts.slice(0, 6);
+  $('#sl-rank').innerHTML = list.map(s => `<button class="rk" data-go="store:${s.si}">
+      <span class="rn">${esc(s.short)}</span><span class="rb"><i style="width:${(100 * s.rev / mx).toFixed(1)}%"></i></span>
+      <span class="rv">${F.rubc(s.rev)}</span><span class="rd ${s.drev != null && s.drev < 0 ? 'neg' : 'pos'}">${s.drev != null ? F.spct(s.drev) : ''}</span>${chev}</button>`).join('')
+    + (sts.length > 6 ? `<button class="rk more-row" id="sl-all">${showAllStores ? 'Свернуть' : `Показать все ${sts.length} точек`}</button>` : '');
+  bindGo($('#sl-rank'));
+  if ($('#sl-all')) $('#sl-all').onclick = () => { showAllStores = !showAllStores; renderSales(); };
   const cA = aggSales(rg, (d, s, c) => c, {...State.s, cat: null});
   const tr = sum([...cA.values()], a => a.rev), tg = sum([...cA.values()], a => gp(a));
   Charts.set('c-share', () => ({
@@ -265,6 +245,23 @@ function renderSales() {
       label: {show: true, position: 'right', formatter: p => NF1.format(p.value) + '%', color: css('--muted'), fontSize: 10.5},
       data: CATS.slice().reverse().map(c => +((cA.get(c.i) ? f(cA.get(c.i)) : 0) * 100).toFixed(2))})),
   }), p => { const c = CATS[CATS.length - 1 - p.dataIndex]; State.set({cat: State.s.cat === c.i ? null : c.i}); });
+}
+
+/* ---------- Уровень 3. Одна точка: категории, маржа и списания ---------- */
+function renderStore() {
+  if (Route.si == null) return;
+  const s = STORES[Route.si], rg = range(), {net, rows} = storeRows(rg), r = rows.find(x => x.si === s.i);
+  $('#h-st').textContent = s.name;
+  if (!r) { $('#st-verdict').textContent = 'Нет продаж за период.'; $('#st-list').innerHTML = ''; return; }
+  $('#st-verdict').innerHTML = `Выручка <b>${F.rubc(r.rev)}</b>. Маржа ${F.pct(r.mg)} — ${r.dmg >= 0 ? 'выше' : 'ниже'} сети на ${F.num1(Math.abs(r.dmg) * 100)} п. п.; списания ${F.pct(r.ws)} — ${r.dws > 0 ? 'выше' : 'ниже'} сети на ${F.num1(Math.abs(r.dws) * 100)} п. п.`;
+  const st = {...State.s, store: s.i, cat: null}, cS = aggSales(rg, (d, x, c) => c, st), cW = aggWo(rg, (d, x, c) => c, st);
+  const cats = CATS.map(c => { const a = cS.get(c.i); return a ? {c, rev: a.rev, mg: mg(a), ws: woShare(cW.get(c.i)?.cost ?? 0, a.cogs)} : null; }).filter(Boolean).sort((a, b) => b.rev - a.rev);
+  $('#st-list').innerHTML = `<div class="rk head"><span class="rn">Категория</span><span class="rv">Выручка</span><span class="rv">Маржа</span><span class="rv">Списания</span><span></span></div>`
+    + cats.map(x => `<div class="rk static"><span class="rn">${esc(x.c.name)}</span><span class="rv">${F.rubc(x.rev)}</span>
+      <span class="rv ${x.mg < net.mg ? 'neg' : ''}">${F.pct(x.mg)}</span><span class="rv ${x.ws > net.woShare ? 'neg' : ''}">${F.pct(x.ws)}</span><span></span></div>`).join('');
+  $('#st-next').innerHTML = `<button class="btn primary" id="st-wo">Списания точки ${chev}</button><button class="btn" id="st-mg">Маржа товаров точки ${chev}</button>`;
+  $('#st-wo').onclick = () => { State.set({store: s.i}); go('writeoffs', {from: s.i}); $('#st-kpis').closest('details').open = true; };
+  $('#st-mg').onclick = () => { State.set({store: s.i}); go('margin', {from: s.i}); };
 }
 
 /* ---------- 2. Ассортимент ---------- */
@@ -431,9 +428,8 @@ function initProfit() {
   tPst = new Table('t-pst', {cols: [{k: 'name', label: 'Точка', t: 'text'}, ...base, {k: 'gpv', label: 'Прибыль', t: 'rub'}],
     rows: [], page: 8, sort: 'diff', dir: 1, onRow: r => State.set({store: State.s.store === r.si ? null : r.si}), empty: 'Нет точек ниже сети'});
   tProblems = new Table('t-problems', {
-    cols: [{k: 'name_h', label: 'Товар', t: 'html', w: 160}, {k: 'rev', label: 'Выручка', t: 'rub'},
-      {k: 'mgv', label: 'Маржа', t: 'pct', help: HELP.mg}, {k: 'diff', label: 'К сети', t: 'pp', help: 'Разница с маржой сети за тот же период, процентные пункты'},
-      {k: 'factors', label: 'Возможные факторы', t: 'text', w: 230}, {k: 'next', label: 'Что проверить', t: 'text', w: 230}],
+    cols: [{k: 'name_h', label: 'Товар', t: 'html', w: 200}, {k: 'mg_h', label: 'Маржа', t: 'html', help: HELP.mg + ' Ниже — разница с маржой сети, п. п.'},
+      {k: 'rev', label: 'Выручка', t: 'rub'}, {k: 'next_h', label: 'Что проверить', t: 'html', w: 380, help: 'Ниже — возможные факторы: гипотезы, а не установленные причины'}],
     rows: [], page: 12, search: ['name', 'sku'], onRow: r => productCard(r.p), csv: 'low_margin', sort: 'diff', dir: 1,
   });
 }
@@ -456,7 +452,10 @@ function renderProfit() {
       name_h: `${esc(x.p.name)}<br><span class="hint">${esc(x.p.cat)}</span>${g < 0 ? ' <span class="pill p-bad">убыток</span>' : ''}`,
       factors: rec ? rec.possible_cause : 'Рост себестоимости, скидки или промо, цена ниже рынка — не установлено',
       next: rec ? rec.action : 'Проверить себестоимость (техкарта, закупка), действующую цену и скидки'};
-  }).filter(r => r.prob));
+  }).map(r => ({...r, mg_h: `${F.pct(r.mgv)}<div class="hint">${r.diff == null ? '' : (r.diff >= 0 ? '+' : '−') + F.num1(Math.abs(r.diff) * 100) + ' п. п.'}</div>`,
+    next_h: `${esc(r.next)}<div class="hint">${esc(r.factors)}</div>`})).filter(r => r.prob));
+  const nLow = tProblems.rows.length, nLoss = tProblems.rows.filter(r => r.prob.includes('Убыток')).length;
+  $('#mg-verdict').innerHTML = `Маржа сети ${F.pct(netAll)}. Ниже неё более чем на 5 п. п. — <b>${F.int(nLow)}</b> товаров${nLoss ? `, из них в убытке — <b>${nLoss}</b>` : ''}.`;
   const maxGp = Math.max(...pts.map(x => Math.max(1, x.s.revc - x.s.cogs)));
   Charts.set('c-scatter', () => ({
     legend: {top: 0, left: 0}, grid: {left: 8, right: 24, top: 40, bottom: 28, containLabel: true},
@@ -477,8 +476,8 @@ let woReason = null, woKind = null, tWo, kindChips, tWost;
 function initStock() {
   kindChips = chipGroup('st-chips', [], {allLabel: 'Все товары', onChange: v => { woKind = v; renderStock(); }});
   tWo = new Table('t-wo', {
-    cols: [{k: 'name', label: 'Товар', t: 'text', w: 170}, {k: 'cat', label: 'Категория', t: 'text'}, {k: 'write_off_cost', label: 'Списано, ₽', t: 'rub', help: HELP.wo},
-      {k: 'write_off_share', label: 'Доля списаний', t: 'pct', help: HELP.ws}, {k: 'med', label: 'Медиана категории', t: 'pct', help: 'Типичная доля списаний товаров той же категории — база сравнения'},
+    cols: [{k: 'name_h', label: 'Товар', t: 'html', w: 220}, {k: 'write_off_cost', label: 'Списано, ₽', t: 'rub', help: HELP.wo},
+      {k: 'ws_h', label: 'Доля списаний', t: 'html', help: HELP.ws + ' Ниже — медиана категории (база сравнения).'},
       {k: 'oos_share', label: 'Нет в продаже', t: 'pct', help: HELP.oos},
       {k: 'kind_h', label: 'Отклонение', t: 'html'}],
     rows: [], page: 10, search: ['name'], onRow: r => productCard(r.p), csv: 'write_offs', sort: 'write_off_cost',
@@ -487,7 +486,8 @@ function initStock() {
   CATS.forEach(c => { med[c.i] = median(PRODS.filter(p => p.c === c.i && p.is_active).map(p => p.write_off_share)); });
   tWo.base = PRODS.filter(p => p.is_active).map(p => {
     const kind = p.rules.has('R3') ? 'Высокие списания (R3)' : p.rules.has('R2') ? 'Часто нет в продаже (R2)' : 'Без отклонений';
-    return {...p, med: med[p.c], dev: p.write_off_share != null && med[p.c] != null ? p.write_off_share - med[p.c] : null, kind,
+    return {...p, med: med[p.c], name_h: `${esc(p.name)}<div class="hint">${esc(p.cat)}</div>`,
+      ws_h: `${F.pct(p.write_off_share)}<div class="hint">медиана ${F.pct(med[p.c])}</div>`, dev: p.write_off_share != null && med[p.c] != null ? p.write_off_share - med[p.c] : null, kind,
       // коротко и без зелёного «всё хорошо» в каждой строке: выделяются только отклонения
       kind_h: kind.startsWith('Без') ? '<span class="hint">нет</span>' : `<span class="pill ${kind.startsWith('Высокие') ? 'p-bad' : 'p-warn'}">${kind.replace(/ \(R\d\)/, '')}</span>`};
   });
@@ -553,11 +553,10 @@ function renderStock() {
 let rcSev = null, rcRule = null, rcShown = 15, ruleChips;
 function initRecs() {
   ruleChips = chipGroup('rc-rules', [], {allLabel: 'Все правила', onChange: v => { rcRule = v; rcShown = 15; renderRecs(); }});
-  $('#cnt-recs').textContent = RECS.filter(r => r.severity === 'Высокая').length;
   $('#rc-d1').textContent = F.date(D.meta.d1);
   tRecs = new Table('rc-list', {
-    cols: [{k: 'sev_h', label: 'Важность', t: 'html'}, {k: 'obj_h', label: 'Товар', t: 'html', w: 170}, {k: 'problem', label: 'Проблема', t: 'text', w: 190},
-      {k: 'value', label: 'Доказательство', t: 'text', w: 220}, {k: 'action', label: 'Что проверить', t: 'text', w: 280}],
+    cols: [{k: 'obj_h', label: 'Товар', t: 'html', w: 230}, {k: 'prob_h', label: 'Проблема', t: 'html', w: 300, help: 'Ниже — цифры, на которых основана задача'},
+      {k: 'action', label: 'Что проверить', t: 'text', w: 320}],
     rows: [], page: 12, search: ['product_name', 'problem'], csv: 'tasks', sort: 'ord', dir: 1, onRow: r => productCard(r.p),
   });
 }
@@ -565,18 +564,19 @@ let tRecs;
 function renderRecs() {
   if (rcRule) $('#rc-rules').closest('details').open = true;  // фильтр задан с обзора — показываем его
   const scope = RECS.filter(r => State.s.cat == null || r.c === State.s.cat);
-  const SD = {'Высокая': 'проверить в первую очередь', 'Средняя': 'проверить в плановом порядке', 'Низкая': 'к сведению'};
-  $('#rc-kpis').innerHTML = SEVS.map(s => `<div class="grp ${rcSev === s ? 'on' : ''}" data-s="${s}" style="--ac:var(${SEV[s].ac})" aria-pressed="${rcSev === s}">
-    <div class="gt"><span class="pill ${SEV[s].p}">Важность: ${s.toLowerCase()}</span></div><div class="gv">${scope.filter(r => r.severity === s).length} <small>задач</small></div>
-    <div class="gd">${SD[s]}</div></div>`).join('');
-  $$('#rc-kpis [data-s]').forEach(c => clickable(c, () => { rcSev = rcSev === c.dataset.s ? null : c.dataset.s; rcShown = 15; renderRecs(); }));
+  const SD = {'Высокая': 'высокая важность — в первую очередь', 'Средняя': 'средняя — в плановом порядке', 'Низкая': 'низкая — к сведению'};
+  $('#rc-kpis').innerHTML = SEVS.map(s => `<button class="grp-b ${rcSev === s ? 'on' : ''} ${s === 'Высокая' ? 'bad' : s === 'Средняя' ? 'warn' : ''}" data-s="${s}" aria-pressed="${rcSev === s}">
+    <span class="gv">${scope.filter(r => r.severity === s).length}</span><span class="gl">${SD[s]}</span></button>`).join('');
+  $$('#rc-kpis [data-s]').forEach(c => c.onclick = () => { rcSev = rcSev === c.dataset.s ? null : c.dataset.s; rcShown = 15; renderRecs(); });
+  const nh = scope.filter(r => r.severity === 'Высокая').length;
+  $('#tk-verdict').innerHTML = `Всего <b>${F.int(scope.length)}</b> задач, из них <b>${F.int(nh)}</b> — в первую очередь. Нажмите на строку — откроется карточка товара.`;
   const s2 = scope.filter(r => !rcSev || r.severity === rcSev);
   ruleChips.update(Object.keys(D.rule_titles).map(k => ({v: k, label: `${k} · ${D.rule_titles[k]}`, n: s2.filter(r => r.rule === k).length})));
   ruleChips.set(rcRule);
   const list = s2.filter(r => !rcRule || r.rule === rcRule).sort((a, b) => SEVS.indexOf(a.severity) - SEVS.indexOf(b.severity));
   tRecs.setRows(list.map((r, i) => ({...r, ord: i, sev_h: `<span class="pill ${SEV[r.severity].p}">${r.severity}</span>`,
-    obj_h: `${esc(r.product_name)}<br><span class="hint">${esc(r.category_name)}</span>`})));
-  $('#rc-more').innerHTML = '<span>Нажмите на строку — откроется карточка товара: основание, возможная причина и ограничения интерпретации.</span>';
+    obj_h: `${esc(r.product_name)}<div class="hint">${esc(r.category_name)} · <span class="pill ${SEV[r.severity].p}">${r.severity}</span></div>`,
+    prob_h: `${esc(r.problem)}<div class="hint">${esc(r.value)}</div>`})));
 }
 
 /* ---------- 6. Методика и данные ---------- */
@@ -643,20 +643,17 @@ buildFilters();
 initSales(); initAssortment(); initProfit(); initStock(); initRecs(); initReports();
 $('#foot').innerHTML = `${esc(D.meta.note)} Статичная демо-версия: данные выгружены из базы проекта, собрано ${D.meta.built}.
   ABC за выбранный период пересчитывается в браузере по тому же правилу, что в Python. Настройка порогов — в полной версии (запуск через Docker, см. README).<br>Канаева Любовь · учебный проект бизнес-аналитика · <a href="https://github.com/lubancho/assortment-writeoff-analytics" target="_blank" rel="noopener">Код и документация на GitHub →</a>`;
-function renderAll() { syncFilters(); renderOverview(); renderSales(); renderAssortment(); renderProfit(); renderStock(); renderRecs(); }
+function renderAll() { syncFilters(); renderOverview(); renderSales(); renderAssortment(); renderProfit(); renderStock(); renderRecs(); if (Route.v === 'store') renderStore(); }
 State.on(renderAll);
-const navGo = Nav.go.bind(Nav);
-Nav.go = (k, push) => { navGo(k, push); syncFilters(); };
-// Старые ссылки ведут на нужную страницу новой структуры.
+// Старые адреса ведут на экраны новой структуры.
 const ALIAS = {recs: 'tasks', problems: 'tasks', stock: 'writeoffs', profit: 'margin', assortment: 'assort', analytics: 'sales'};
-Nav.fromHash = function () {
-  const k = (location.hash || '').slice(1);
-  if (ALIAS[k]) {
-    history.replaceState(null, '', '#' + ALIAS[k]);
-    Nav.go(ALIAS[k], false);
-    return;
-  }
-  Nav.go(document.getElementById('v-' + k) ? k : 'overview', false);
-};
-Nav.init();
+function fromHash() {
+  const [k, a] = (location.hash || '').slice(1).split('/');
+  const v = ALIAS[k] || k;
+  if (v === 'store' && STORES[+a]) return go('store', {si: +a});
+  go(document.getElementById('v-' + v) && v !== 'store' ? v : 'overview');
+}
+window.addEventListener('hashchange', fromHash);
+bindGo();
 renderAll();
+fromHash();
