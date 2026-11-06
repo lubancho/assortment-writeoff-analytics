@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Продажи, ассортимент и списания — демо</title>
+<meta name="description" content="Простой инструмент для руководителя: что происходит с продажами, где теряются деньги и что проверить. Синтетические данные.">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%234536a8'/%3E%3Ctext x='16' y='21' font-size='12' font-family='Arial' font-weight='700' fill='%23fff' text-anchor='middle'%3EABC%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="common.css">
+</head>
+<body>
+<div class="app noside">
+<main>
+  <header class="filterbar topbar" id="filterbar" role="banner">
+    <button class="brand-mini" data-go="overview" aria-label="На сводку"><span class="logo" aria-hidden="true">АС</span><span>Продажи и ассортимент</span></button>
+    <span class="sp"></span>
+    <div class="seg" id="f-period" role="group" aria-label="Период"></div>
+    <div class="chips" id="f-active" aria-live="polite"></div>
+    <button class="top-link" data-go="reports">Отчёты</button>
+    <button class="top-link" data-go="method">Справка</button>
+    <button class="theme-btn icon" aria-label="Сменить тему"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg><span class="theme-label sr">Тёмная тема</span></button>
+  </header>
+  <nav class="crumbs" id="crumbs" aria-label="Где вы находитесь"></nav>
+  <div class="loading" id="loading">Загрузка данных…</div>
+  <noscript><div class="callout bad">Для работы дашборда нужен JavaScript.</div></noscript>
+
+  <!-- Уровень 1. Сводка -->
+  <section class="view" id="v-overview" aria-labelledby="h-ov">
+    <h1 id="h-ov" class="sr">Сводка</h1>
+    <p class="verdict big-verdict" id="ov-verdict"></p>
+    <div class="doors" id="doors"></div>
+  </section>
+
+  <!-- Уровень 2. Выручка по точкам -->
+  <section class="view" id="v-sales" aria-labelledby="h-sl">
+    <h1 id="h-sl">Выручка по точкам</h1>
+    <p class="verdict" id="sl-verdict"></p>
+    <div class="card rank" id="sl-rank"></div>
+    <div class="next"><button class="btn" data-go="assort">Какие товары дают выручку <span class="chev" aria-hidden="true">›</span></button></div>
+    <details class="more"><summary>Вклад категорий в выручку и прибыль</summary>
+      <div class="card mt"><div class="chart" id="c-share" role="img" aria-label="Доли категорий"></div></div></details>
+    <details class="more"><summary>Все показатели точек</summary><div class="card mt"><div id="t-stores"></div></div></details>
+  </section>
+
+  <!-- Уровень 3. Одна точка -->
+  <section class="view" id="v-store" aria-labelledby="h-st">
+    <h1 id="h-st"></h1>
+    <p class="verdict" id="st-verdict"></p>
+    <div class="card rank" id="st-list"></div>
+    <div class="next" id="st-next"></div>
+  </section>
+
+  <section class="view" id="v-tasks" aria-labelledby="h-tk">
+    <h1 id="h-tk">Задачи на проверку</h1>
+    <p class="verdict" id="tk-verdict"></p>
+    <div class="groups" id="rc-kpis"></div>
+    <div class="card mt"><div id="rc-list"></div></div>
+    <div class="tbl-foot" id="rc-more"></div>
+    <details class="more mt"><summary>Фильтр по типу задачи</summary><div class="chips mt" id="rc-rules" role="group" aria-label="Тип задачи"></div></details>
+    <p class="hint">Задачи не утверждают причину и не предлагают выводить товар из ассортимента только по классу ABC/XYZ. Задачи — по всей сети за последние 28 дней (до <span id="rc-d1"></span>); фильтр категории применяется.</p>
+  </section>
+
+  <section class="view" id="v-assort" aria-labelledby="h-as">
+    <h1 id="h-as">Ассортимент</h1>
+    <p class="verdict">Нажмите на группу — таблица покажет её товары; на товар — его спрос и задачи.</p>
+    <div class="grid g-grp mt" id="grp"></div>
+    <div class="card mt"><div class="card-head"><h3 id="grp-title">Все товары</h3><button class="link" id="grp-reset" hidden>Показать все</button></div><div id="t-grp"></div></div>
+    <div class="scope mt" id="as-scope"></div>
+    <p class="hint">Товар может входить в несколько групп. Группы строятся по действующей методике (класс A, классы X/Y/Z, правило R3 и задачи R1–R5); новых порогов не вводилось.</p>
+    <details class="more mt"><summary>Профессиональный режим ABC / XYZ</summary>
+      <div class="grid g-kpi mt" id="abc-kpis" style="grid-template-columns:repeat(auto-fit,minmax(200px,1fr))"></div>
+      <div class="grid g-73 mt">
+        <div class="card"><div class="card-head"><h3>Кривая Парето: вклад товаров</h3><div class="seg" id="abc-by" role="group" aria-label="Показатель ABC"></div></div><div class="chart tall" id="c-pareto" role="img" aria-label="Кривая Парето"></div></div>
+        <div class="card"><div class="card-head"><h3>Матрица ABC × XYZ, товаров</h3><span class="hint">клик — фильтр</span></div><div class="chart tall" id="c-matrix" role="img" aria-label="Матрица ABC на XYZ"></div></div>
+      </div>
+      <div class="card mt"><div class="chips" id="as-chips" style="margin-bottom:10px" role="group" aria-label="XYZ"></div><div id="t-prods"></div></div></details>
+  </section>
+
+  <section class="view" id="v-writeoffs" aria-labelledby="h-wo">
+    <h1 id="h-wo">Списания</h1>
+    <p class="verdict" id="st-summary"></p>
+    <div class="chips" id="st-chips" role="group" aria-label="Отклонение"></div>
+    <div class="card mt"><div id="t-wo"></div></div>
+    <p class="hint">Таблица товаров — по всей сети за последние 28 дней (данных о товарах по точкам нет); показатели и причины в блоке «Причины и точки» учитывают выбранную точку.</p>
+    <details class="more mt"><summary>Причины и точки</summary>
+      <div class="grid g-kpi mt" id="st-kpis"></div>
+      <div class="grid g-46 mt">
+        <div class="card"><div class="card-head"><h3>Причины списаний, ₽</h3><span class="hint">клик — фильтр</span></div><div class="chart" id="c-reasons" role="img" aria-label="Причины списаний"></div></div>
+        <div class="card"><div class="card-head"><h3>Точки: доля списаний и отклонение от сети</h3><span class="hint">клик — фильтр</span></div><div id="t-wost"></div></div>
+      </div></details>
+    <details class="more"><summary>По дням и по категориям</summary>
+      <div class="grid g-2 mt">
+        <div class="card"><div class="card-head"><h3>Списания по дням и причинам, ₽</h3></div><div class="chart" id="c-woday" role="img" aria-label="Списания по дням"></div></div>
+        <div class="card"><div class="card-head"><h3>Доля списаний по категориям, %</h3><span class="hint">клик — фильтр</span></div><div class="chart" id="c-wocat" role="img" aria-label="Доля списаний по категориям"></div></div>
+      </div></details>
+  </section>
+
+  <section class="view" id="v-margin" aria-labelledby="h-mg">
+    <h1 id="h-mg">Маржа товаров</h1>
+    <p class="verdict" id="mg-verdict"></p>
+    <div class="card mt"><div class="card-head"><h3>Товары с низкой маржой</h3><span class="hint" id="pf-hint"></span></div><div id="t-problems"></div></div>
+    <details class="more mt"><summary>Категории и точки ниже сети<span class="hint" id="pf-net" style="margin-left:8px"></span></summary>
+      <div class="grid g-2 mt">
+        <div class="card"><div class="card-head"><h3>Категории</h3><span class="hint">клик — фильтр</span></div><div id="t-pcat"></div></div>
+        <div class="card"><div class="card-head"><h3>Точки</h3><span class="hint">клик — фильтр</span></div><div id="t-pst"></div></div>
+      </div></details>
+    <details class="more"><summary>Все товары на карте «выручка × маржа»</summary>
+      <div class="card mt"><div class="card-head"><h3>Все товары: выручка и маржинальность</h3><span class="hint">правее — больше выручка, выше — выше маржа · клик — карточка</span></div>
+        <div class="chart" id="c-scatter" style="height:480px" role="img" aria-label="Товары: выручка и маржинальность"></div></div></details>
+    <p class="hint">Возможные факторы — гипотезы для проверки, а не установленные причины.</p>
+  </section>
+
+  <section class="view" id="v-reports" aria-labelledby="h-rp">
+    <h1 id="h-rp">Отчёты</h1>
+    <div class="reports mt" id="sql-list"></div>
+  </section>
+
+  <section class="view" id="v-method" aria-labelledby="h-mt">
+    <h1 id="h-mt">Справка</h1>
+    <div class="grid g-2 mt"><div class="card method" id="m-formulas"></div><div class="card method" id="m-rules"></div></div>
+    <details class="more mt"><summary>Качество исходных данных</summary>
+      <div class="card mt"><div class="card-head"><h3>Проверки качества исходных данных</h3><span class="hint">строки с ошибками не попадают в расчёты</span></div><div id="t-dq"></div></div></details>
+    <details class="more"><summary>Ограничения модели</summary><div class="card mt method" id="m-limits"></div></details>
+  </section>
+
+  <div class="foot" id="foot"></div>
+</main>
+</div>
+
+<div class="drawer-bg" id="drawer-bg"></div>
+<div class="drawer" id="drawer" aria-label="Карточка"><button class="close" aria-label="Закрыть карточку и вернуться к списку">×</button><div id="drawer-body"></div></div>
+
+<script src="echarts.min.js"></script>
+<script src="data.js"></script>
+<script src="common.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
