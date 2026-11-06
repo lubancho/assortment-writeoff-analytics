@@ -1,4 +1,4 @@
-"""Аналитика → «Подробные отчёты»: каталог SQL-отчётов 1–10 и сводный отчёт в Excel."""
+"""Справка → «Отчёты»: каталог SQL-отчётов 1–10 и сводный отчёт в Excel."""
 
 from __future__ import annotations
 
@@ -15,14 +15,15 @@ from asa.export import to_csv_bytes, to_xlsx_bytes
 from asa.report_catalog import COLUMNS, REPORTS
 
 ui.page_header(
-    "Подробные отчёты",
+    "Готовые отчёты",
     ui.period_caption()
     + " · готовые отчёты на частые вопросы: главные результаты, полная таблица, описание расчёта.",
 )
 d0, d1 = ui.current_period()
 conn = ui.get_conn()
 
-tab1, tab2 = st.tabs(["Каталог отчётов", "Сводный отчёт в Excel"])
+tab1 = st.container()
+tab2 = st.expander("Подробнее: сводный отчёт в Excel")
 
 with tab1:
     left, right = st.columns([2, 5], gap="large")

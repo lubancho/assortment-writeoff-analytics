@@ -132,7 +132,6 @@ function buildFilters() {
   cat.onchange = () => State.set({cat: cat.value === '' ? null : +cat.value});
 }
 const view = () => (location.hash || '#overview').slice(1) || 'overview';
-let prTab = 'tasks', anTab = 'sales';
 function syncFilters() {
   $$('#f-period button').forEach(b => { const on = +b.dataset.v === State.s.days; b.classList.toggle('on', on); b.setAttribute('aria-pressed', on); });
   $('#f-store').value = State.s.store ?? '';
@@ -145,14 +144,17 @@ function syncFilters() {
   $$('#f-active [data-x]').forEach(b => b.onclick = () => { const x = b.dataset.x; State.set(x === 'all' ? {store: null, cat: null} : {[x]: null}); });
   // На экране видны только фильтры, которые на нём действуют; на обзоре — не больше двух.
   const v = view(), show = (id, on) => { $(id).style.display = on ? '' : 'none'; };
-  const periodOn = v === 'overview' || (v === 'problems' && prTab === 'margin') || (v === 'analytics' && !['reports', 'method'].includes(anTab));
-  const storeOn = v === 'overview' || (v === 'problems' && prTab === 'margin') || (v === 'analytics' && ['sales', 'wodetail'].includes(anTab));
-  const catOn = v !== 'overview' && !(v === 'analytics' && ['reports', 'method'].includes(anTab));
+  const periodOn = ['overview', 'sales', 'assort', 'writeoffs', 'margin'].includes(v);
+  const storeOn = ['overview', 'sales', 'writeoffs', 'margin'].includes(v);
+  const catOn = ['tasks', 'sales', 'assort', 'writeoffs', 'margin'].includes(v);
   show('#f-period', periodOn); show('#f-store', storeOn); show('#f-cat', catOn);
   show('#filterbar', periodOn || storeOn || catOn || State.s.store != null || State.s.cat != null);
 }
 const where = () => [State.s.store != null ? STORES[State.s.store].name : 'вся сеть', State.s.cat != null ? CATS[State.s.cat].name : 'все категории'].join(' · ');
-function goTo(v, tab) { Nav.go(v); if (tab) (v === 'problems' ? prTabs : anTabs).set(tab); }
+// бывшие вкладки → отдельные страницы
+const PAGE = {tasks: 'tasks', losses: 'writeoffs', wodetail: 'writeoffs', margin: 'margin', pdetail: 'margin',
+  sales: 'sales', assort: 'assort', reports: 'reports', method: 'method', problems: 'tasks', analytics: 'sales'};
+function goTo(v, tab) { Nav.go(PAGE[tab] || PAGE[v] || v); }
 
 /* ---------- 1. Обзор: главный показатель → вывод → проблемы → подробности по запросу ---------- */
 function storeRows(rg) {
@@ -180,7 +182,7 @@ function problemItems(rg, cur, prev) {
   }
   const {net, rows} = storeRows(rg);
   if (prev && cur.wo > prev.wo) items.push({lvl: 'warn', t: `Потери на списаниях выросли до ${F.rubc(cur.wo)}`,
-    why: `Было ${F.rubc(prev.wo)} за предыдущие ${n} дн. Товары с наибольшими потерями — в разделе «Проблемы».`, go: () => goTo('problems', 'losses')});
+    why: `Было ${F.rubc(prev.wo)} за предыдущие ${n} дн. Товары с наибольшими потерями — на странице «Списания».`, go: () => goTo('problems', 'losses')});
   if (State.s.store == null && rows.length) {
     const w = rows.slice().sort((a, b) => b.dws - a.dws)[0];
     if (w.dws > 0) items.push({lvl: 'warn', t: `Больше всего списаний — ${w.name}`,
@@ -278,7 +280,6 @@ const clsPill = c => `<span class="pill ${c === 'A' ? 'p-ok' : c === 'B' ? 'p-wa
 const xyzPill = z => `<span class="pill ${z === 'X' ? 'p-vio' : z === 'Y' ? 'p-warn' : z === 'Z' ? 'p-bad' : ''}">${z ?? '—'}</span>`;
 const XYZ_WORD = {X: 'стабильный', Y: 'колеблется', Z: 'нестабильный'};
 function initAssortment() {
-  tabs('as-tabs');
   tGrp = new Table('t-grp', {
     cols: [{k: 'name', label: 'Товар', t: 'text', w: 170}, {k: 'cat', label: 'Категория', t: 'text'}, {k: 'rev', label: 'Выручка', t: 'rub', help: HELP.rev},
       {k: 'share', label: 'Доля в выручке', t: 'pct', na: '0%'}, {k: 'mgv', label: 'Маржа', t: 'pct', help: HELP.mg},
@@ -302,7 +303,7 @@ function initAssortment() {
 function renderAssortment() {
   const rg = range(), r = abcFor(rg), list = r[abcBy];
   const rev = Object.fromEntries(r.rev.map(x => [x.p, x])), gpc = Object.fromEntries(r.gp.map(x => [x.p, x]));
-  $('#an-eyebrow').textContent = `Подробности · ${periodText(rg)} · ${where()}`;
+  $$('.an-eyebrow').forEach(el => el.textContent = `${periodText(rg)} · ${where()}`);
   $('#as-scope').innerHTML = `Ассортимент анализируется <b>по всей сети</b>${State.s.store != null ? ' — фильтр точки здесь не применяется' : ''}.
     Доля в выручке и класс ABC — за выбранный период; спрос (XYZ) — по ${D.meta.xyz_weeks} полным неделям до ${F.date(D.meta.d1)};
     доля списаний и задачи — за последние 28 дней.`;
@@ -439,7 +440,7 @@ function initProfit() {
 function renderProfit() {
   const rg = range(), ps = prodSales(rg);
   const netAll = mg(aggSales(rg, null, {store: null, cat: null}).get(0));
-  $('#pr-eyebrow').textContent = `${periodText(rg)} · ${where()}`;
+  $$('.pr-eyebrow').forEach(el => el.textContent = `${periodText(rg)} · ${where()}`);
   const cA = aggSales(rg, (d, s, c) => c, {...State.s, cat: null}), netC = mg(aggSales(rg, null, {...State.s, cat: null}).get(0));
   const sA = aggSales(rg, (d, s) => s, {...State.s, store: null}), netS = mg(aggSales(rg, null, {...State.s, store: null}).get(0));
   $('#pf-net').textContent = `база сравнения — маржинальность сети ${F.pct(netC)}`;
@@ -479,7 +480,7 @@ function initStock() {
     cols: [{k: 'name', label: 'Товар', t: 'text', w: 170}, {k: 'cat', label: 'Категория', t: 'text'}, {k: 'write_off_cost', label: 'Списано, ₽', t: 'rub', help: HELP.wo},
       {k: 'write_off_share', label: 'Доля списаний', t: 'pct', help: HELP.ws}, {k: 'med', label: 'Медиана категории', t: 'pct', help: 'Типичная доля списаний товаров той же категории — база сравнения'},
       {k: 'oos_share', label: 'Нет в продаже', t: 'pct', help: HELP.oos},
-      {k: 'kind_h', label: 'Оценка', t: 'html'}],
+      {k: 'kind_h', label: 'Отклонение', t: 'html'}],
     rows: [], page: 10, search: ['name'], onRow: r => productCard(r.p), csv: 'write_offs', sort: 'write_off_cost',
   });
   const med = {};
@@ -487,7 +488,8 @@ function initStock() {
   tWo.base = PRODS.filter(p => p.is_active).map(p => {
     const kind = p.rules.has('R3') ? 'Высокие списания (R3)' : p.rules.has('R2') ? 'Часто нет в продаже (R2)' : 'Без отклонений';
     return {...p, med: med[p.c], dev: p.write_off_share != null && med[p.c] != null ? p.write_off_share - med[p.c] : null, kind,
-      kind_h: `<span class="pill ${kind.startsWith('Высокие') ? 'p-bad' : kind.startsWith('Часто') ? 'p-warn' : 'p-ok'}">${kind}</span>`};
+      // коротко и без зелёного «всё хорошо» в каждой строке: выделяются только отклонения
+      kind_h: kind.startsWith('Без') ? '<span class="hint">нет</span>' : `<span class="pill ${kind.startsWith('Высокие') ? 'p-bad' : 'p-warn'}">${kind.replace(/ \(R\d\)/, '')}</span>`};
   });
   tWost = new Table('t-wost', {
     cols: [{k: 'name', label: 'Точка', t: 'text'}, {k: 'wo', label: 'Списано, ₽', t: 'rub'}, {k: 'ws', label: 'Доля', t: 'pct', help: HELP.ws},
@@ -561,6 +563,7 @@ function initRecs() {
 }
 let tRecs;
 function renderRecs() {
+  if (rcRule) $('#rc-rules').closest('details').open = true;  // фильтр задан с обзора — показываем его
   const scope = RECS.filter(r => State.s.cat == null || r.c === State.s.cat);
   const SD = {'Высокая': 'проверить в первую очередь', 'Средняя': 'проверить в плановом порядке', 'Низкая': 'к сведению'};
   $('#rc-kpis').innerHTML = SEVS.map(s => `<div class="grp ${rcSev === s ? 'on' : ''}" data-s="${s}" style="--ac:var(${SEV[s].ac})" aria-pressed="${rcSev === s}">
@@ -638,24 +641,19 @@ function initReports() {
 shell();
 buildFilters();
 initSales(); initAssortment(); initProfit(); initStock(); initRecs(); initReports();
-const prTabs = tabs('pr-tabs', k => { prTab = k; syncFilters(); });
-const anTabs = tabs('an-tabs', k => { anTab = k; syncFilters(); });
-$('#go-method').onclick = () => goTo('analytics', 'method');
 $('#foot').innerHTML = `${esc(D.meta.note)} Статичная демо-версия: данные выгружены из базы проекта, собрано ${D.meta.built}.
-  ABC за выбранный период пересчитывается в браузере по тому же правилу, что в Python. Настройка порогов — в полной версии (запуск через Docker, см. README).`;
+  ABC за выбранный период пересчитывается в браузере по тому же правилу, что в Python. Настройка порогов — в полной версии (запуск через Docker, см. README).<br>Канаева Любовь · учебный проект бизнес-аналитика · <a href="https://github.com/lubancho/assortment-writeoff-analytics" target="_blank" rel="noopener">Код и документация на GitHub →</a>`;
 function renderAll() { syncFilters(); renderOverview(); renderSales(); renderAssortment(); renderProfit(); renderStock(); renderRecs(); }
 State.on(renderAll);
 const navGo = Nav.go.bind(Nav);
 Nav.go = (k, push) => { navGo(k, push); syncFilters(); };
-// Старые ссылки ведут на нужную вкладку новой структуры.
-const ALIAS = {recs: ['problems', 'tasks'], stock: ['problems', 'losses'], profit: ['problems', 'margin'],
-  assortment: ['analytics', 'assort'], reports: ['analytics', 'reports']};
+// Старые ссылки ведут на нужную страницу новой структуры.
+const ALIAS = {recs: 'tasks', problems: 'tasks', stock: 'writeoffs', profit: 'margin', assortment: 'assort', analytics: 'sales'};
 Nav.fromHash = function () {
   const k = (location.hash || '').slice(1);
   if (ALIAS[k]) {
-    const [v, t] = ALIAS[k];
-    history.replaceState(null, '', '#' + v);
-    goTo(v, t);
+    history.replaceState(null, '', '#' + ALIAS[k]);
+    Nav.go(ALIAS[k], false);
     return;
   }
   Nav.go(document.getElementById('v-' + k) ? k : 'overview', false);

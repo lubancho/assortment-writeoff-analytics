@@ -1,4 +1,4 @@
-"""Экран «Анализ ассортимента»: понятные группы товаров; ABC/XYZ, матрица и спрос — в профессиональном режиме."""
+"""Разбор → «Ассортимент»: понятные группы товаров; ABC/XYZ, матрица и спрос — в «Подробнее»."""
 
 from __future__ import annotations
 
@@ -16,8 +16,8 @@ from asa.analysis import XYZ_WEEKS
 from asa.xyz import full_weeks
 
 ui.page_header(
-    "Ассортимент: какие товары за что отвечают",
-    "Товары разбиты на понятные группы; профессиональный анализ ABC/XYZ — на второй вкладке. "
+    "Какие товары тянут продажи",
+    "Товары разбиты на понятные группы; профессиональный анализ ABC/XYZ — в блоке «Подробнее». "
     "Класс — повод для анализа, а не основание выводить товар из ассортимента.",
 )
 d0, d1 = ui.current_period()
@@ -26,10 +26,12 @@ ui.scope_note(
     if ui.current_stores()
     else "Ассортимент анализируется по всей сети."
 )
-tab_groups, tab_pro = st.tabs(["Группы товаров", "Профессиональный режим: ABC / XYZ"])
+tab_groups = st.container()
+tab_pro = st.expander("Подробнее: профессиональный режим ABC / XYZ")
 
 with tab_pro:  # noqa: SIM117 — настройки внутри вкладки, затем блок валидации вне её
-    with st.expander("Настройки классификации", expanded=False):
+    with st.container(border=True):
+        st.markdown("**Настройки классификации**")
         c = st.columns(5)
         ss = st.session_state
         c[0].slider(

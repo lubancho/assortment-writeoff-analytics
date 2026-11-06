@@ -89,7 +89,7 @@ pio.templates.default = "plotly_white+asa"
 
 _CSS = """
 <style>
-.block-container {padding-top: 1.6rem; padding-bottom: 1rem; max-width: 1500px;}
+.block-container {padding-top: 4rem; padding-bottom: 1rem; max-width: 1500px;}
 h1 {letter-spacing: -0.02em;}
 [data-testid="stSidebar"] {background: #4536A8;}
 [data-testid="stSidebarNav"] span, [data-testid="stSidebar"] .stMarkdown p,
@@ -166,7 +166,7 @@ def cached_analysis(
 
 
 def analysis_params() -> dict:
-    """Пороги ABC/XYZ из настроек экрана «Анализ ассортимента» (или значения по умолчанию)."""
+    """Пороги ABC/XYZ из настроек страницы «Ассортимент» (или значения по умолчанию)."""
     s = st.session_state
     return {
         "a": s.get("cfg_abc_a", 80) / 100,
@@ -199,32 +199,35 @@ def footer() -> None:
     )
 
 
-def sidebar_filters() -> None:
-    """Общие фильтры: период и точки. Значения хранятся в st.session_state и действуют на всех экранах."""
+def filter_bar() -> None:
+    """Общие фильтры в верхней строке страницы: период и точки (в боковой панели только разделы).
+
+    Значения хранятся в st.session_state и действуют на всех экранах.
+    """
     period = cached_period()
-    with st.sidebar:
-        if period is None:
-            return
-        d0, d1 = period
-        st.date_input(
-            "Период анализа",
-            (max(d0, d1 - timedelta(days=27)), d1),
-            min_value=d0,
-            max_value=d1,
-            key="period",
-            format="DD.MM.YYYY",
-        )
-        stores = cached_stores()
-        st.multiselect(
-            "Точки",
-            stores["store_id"],
-            key="stores",
-            placeholder="Вся сеть",
-            format_func=dict(zip(stores["store_id"], stores["name"], strict=True)).get,
-            help="Фильтр точек действует на продажи, остатки и списания. ABC/XYZ и рекомендации "
-            "считаются по сети в целом.",
-        )
-        st.caption(f"Данные: {d0:%d.%m.%Y} — {d1:%d.%m.%Y}")
+    if period is None:
+        return
+    d0, d1 = period
+    c1, c2, c3 = st.columns([2, 3, 2], vertical_alignment="bottom")
+    c1.date_input(
+        "Период анализа",
+        (max(d0, d1 - timedelta(days=27)), d1),
+        min_value=d0,
+        max_value=d1,
+        key="period",
+        format="DD.MM.YYYY",
+    )
+    stores = cached_stores()
+    c2.multiselect(
+        "Точки",
+        stores["store_id"],
+        key="stores",
+        placeholder="Вся сеть",
+        format_func=dict(zip(stores["store_id"], stores["name"], strict=True)).get,
+        help="Фильтр точек действует на продажи, остатки и списания. ABC/XYZ и рекомендации "
+        "считаются по сети в целом.",
+    )
+    c3.caption(f"Данные: {d0:%d.%m.%Y} — {d1:%d.%m.%Y}")
 
 
 def current_period() -> tuple[date, date]:
@@ -239,7 +242,7 @@ def current_period() -> tuple[date, date]:
     )
     if isinstance(value, tuple | list) and len(value) == 2:
         return value[0], value[1]
-    st.info("Выберите конечную дату периода в боковой панели")
+    st.info("Выберите конечную дату в фильтре периода вверху страницы")
     st.stop()
 
 

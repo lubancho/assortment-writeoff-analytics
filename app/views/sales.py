@@ -1,4 +1,4 @@
-"""Аналитика → «Продажи и точки»: динамика выручки, вклад категорий, сравнение точек (перенесено с главной)."""
+"""Разбор → «Продажи по точкам»: сравнение точек; динамика выручки и категории — в «Подробнее»."""
 
 from __future__ import annotations
 
@@ -12,7 +12,7 @@ from components import ui
 from asa import metrics, queries
 from asa import repository as repo
 
-ui.page_header("Продажи и точки", ui.period_caption())
+ui.page_header("Как продают точки", ui.period_caption() + " · отклонения — к среднему по сети")
 d0, d1 = ui.current_period()
 stores = ui.current_stores()
 
@@ -70,56 +70,7 @@ net = sales(d0, d1, None).iloc[0]
 net_ws = metrics.write_off_share(write_offs(d0, d1, None).iloc[0].write_off_cost, net.cogs)
 tbl["d_margin"] = [None if m is None else m - net.gross_margin for m in tbl["gross_margin"]]
 tbl["d_ws"] = [None if w is None else w - net_ws for w in tbl["write_off_share"]]
-g1, g2 = st.columns([7, 5])
-with g1:
-    dd = ui.to_display(daily(d0, d1))
-    fig = go.Figure()
-    fig.add_bar(
-        x=dd["sale_date"],
-        y=dd["revenue"],
-        name="Выручка за день",
-        marker_color=ui.PALETTE["accent2"],
-    )
-    fig.add_scatter(
-        x=dd["sale_date"],
-        y=dd["revenue_ma7"],
-        name="Скользящая средняя за 7 дней",
-        line={"color": ui.PALETTE["accent"], "width": 2.5},
-    )
-    fig.update_layout(title="Выручка сети по дням, ₽", height=340, yaxis_tickformat=",.0f")
-    fig.update_xaxes(tickformat="%d.%m", hoverformat="%d.%m.%Y")
-    st.plotly_chart(fig, width="stretch")
-    if stores:
-        st.caption("График динамики — по всей сети (SQL-задача 5).")
-with g2:
-    cat = ui.to_display(sales(d0, d1, stores, "category"))
-    cat["share"] = cat["revenue"] / cat["revenue"].sum() * 100
-    cat["gp_share"] = cat["gross_profit"] / cat["gross_profit"].sum() * 100
-    fig = go.Figure()
-    fig.add_bar(
-        y=cat["category_name"],
-        x=cat["share"],
-        name="Доля в выручке",
-        orientation="h",
-        marker_color=ui.PALETTE["accent2"],
-    )
-    fig.add_bar(
-        y=cat["category_name"],
-        x=cat["gp_share"],
-        name="Доля в валовой прибыли",
-        orientation="h",
-        marker_color=ui.PALETTE["accent"],
-    )
-    fig.update_layout(
-        title="Какие категории приносят выручку и прибыль, %",
-        height=340,
-        barmode="group",
-        xaxis_ticksuffix="%",
-        yaxis={"autorange": "reversed"},
-    )
-    st.plotly_chart(fig, width="stretch")
-
-st.markdown("**Точки: продажи, маржа и списания** — отклонения к сети, процентные пункты")
+st.markdown("**Точки: продажи, маржа и списания** — отклонения к сети в процентных пунктах")
 show = pd.DataFrame(
     {
         "Точка": tbl["store_name"],
@@ -159,4 +110,53 @@ st.dataframe(
         ),
     },
 )
+with st.expander("Подробнее: выручка по дням и вклад категорий"):
+    g1, g2 = st.columns([7, 5])
+    with g1:
+        dd = ui.to_display(daily(d0, d1))
+        fig = go.Figure()
+        fig.add_bar(
+            x=dd["sale_date"],
+            y=dd["revenue"],
+            name="Выручка за день",
+            marker_color=ui.PALETTE["accent2"],
+        )
+        fig.add_scatter(
+            x=dd["sale_date"],
+            y=dd["revenue_ma7"],
+            name="Скользящая средняя за 7 дней",
+            line={"color": ui.PALETTE["accent"], "width": 2.5},
+        )
+        fig.update_layout(title="Выручка сети по дням, ₽", height=340, yaxis_tickformat=",.0f")
+        fig.update_xaxes(tickformat="%d.%m", hoverformat="%d.%m.%Y")
+        st.plotly_chart(fig, width="stretch")
+        if stores:
+            st.caption("График динамики — по всей сети (SQL-задача 5).")
+    with g2:
+        cat = ui.to_display(sales(d0, d1, stores, "category"))
+        cat["share"] = cat["revenue"] / cat["revenue"].sum() * 100
+        cat["gp_share"] = cat["gross_profit"] / cat["gross_profit"].sum() * 100
+        fig = go.Figure()
+        fig.add_bar(
+            y=cat["category_name"],
+            x=cat["share"],
+            name="Доля в выручке",
+            orientation="h",
+            marker_color=ui.PALETTE["accent2"],
+        )
+        fig.add_bar(
+            y=cat["category_name"],
+            x=cat["gp_share"],
+            name="Доля в валовой прибыли",
+            orientation="h",
+            marker_color=ui.PALETTE["accent"],
+        )
+        fig.update_layout(
+            title="Какие категории приносят выручку и прибыль, %",
+            height=340,
+            barmode="group",
+            xaxis_ticksuffix="%",
+            yaxis={"autorange": "reversed"},
+        )
+        st.plotly_chart(fig, width="stretch")
 ui.footer()
