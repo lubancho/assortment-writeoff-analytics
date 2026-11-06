@@ -166,7 +166,7 @@ def cached_analysis(
 
 
 def analysis_params() -> dict:
-    """Пороги ABC/XYZ из настроек экрана «Ассортимент» (или значения по умолчанию)."""
+    """Пороги ABC/XYZ из настроек экрана «Анализ ассортимента» (или значения по умолчанию)."""
     s = st.session_state
     return {
         "a": s.get("cfg_abc_a", 80) / 100,

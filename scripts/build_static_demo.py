@@ -21,12 +21,13 @@ from pathlib import Path
 
 import pandas as pd
 
-from asa import analysis, queries
+from asa import analysis, queries, report_catalog
 from asa import recommendations as rec
 from asa import repository as repo
 from asa.analysis import XYZ_WEEKS
 from asa.config import DEMO_NOTE
 from asa.db import connect, fetch_df
+from asa.report_catalog import COLUMNS, REPORTS
 from asa.xyz import full_weeks
 
 WEB = Path(__file__).parent / "web"
@@ -174,6 +175,8 @@ def collect(conn) -> dict:
                 "n": n,
                 "title": task.title,
                 "header": task.header(),
+                "human": REPORTS[n],
+                "method": report_catalog.method_text(task.header()),
                 "text": task.text(),
                 "note": note,
                 "cols": list(df.columns),
@@ -221,6 +224,7 @@ def collect(conn) -> dict:
         },
         "sql": sql,
         "dq": rows(repo.dq_summary(conn), ["check_code", "severity", "issues"]),
+        "col_ru": COLUMNS,
     }
 
 

@@ -10,7 +10,16 @@ from streamlit.testing.v1 import AppTest
 pytestmark = pytest.mark.ui
 
 APP = Path(__file__).resolve().parents[2] / "app"
-VIEWS = ["overview", "assortment", "profitability", "stock", "recommendations", "reports"]
+VIEWS = [
+    "overview",
+    "assortment",
+    "profitability",
+    "stock",
+    "recommendations",
+    "reports",
+    "sales",
+    "methodology",
+]
 
 
 def run_view(view: str, period=None, stores=None) -> AppTest:
@@ -78,7 +87,7 @@ def test_assortment_threshold_validation():
 
 def test_reports_switch_sql_task():
     at = run_view("reports")
-    at.selectbox[0].set_value(8).run()
+    at.radio[0].set_value(8).run()
     assert not at.exception
     assert len(at.get("download_button")) >= 2
 
@@ -86,8 +95,15 @@ def test_reports_switch_sql_task():
 def test_overview_has_hierarchy_and_attention_block():
     at = run_view("overview")
     text = " ".join(m.value for m in at.markdown)
-    assert "Основные показатели" in text and "Что требует внимания" in text
-    assert [m.label for m in at.metric][:3] == ["Выручка", "Валовая прибыль", "Маржинальность"]
+    assert "Главные проблемы" in text
+    assert [m.label for m in at.metric] == [
+        "Выручка",
+        "Маржа",
+        "Потери на списаниях",
+        "Доля списаний",
+    ]
+    assert sum("class='ux-attn'" in m.value for m in at.markdown) <= 3
+    assert len(at.get("plotly_chart")) <= 1
 
 
 @pytest.mark.parametrize("view", ["overview", "assortment", "profitability", "stock"])

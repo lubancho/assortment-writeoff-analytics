@@ -141,65 +141,68 @@ st.caption(
     f"Позиций: {len(view)}. Связь списаний с объёмом производства — гипотеза, её нужно проверить на месте."
 )
 
-ui.level("Подробно", "Причины, динамика, категории и точки")
-c1, c2 = st.columns(2)
-with c1:
-    by_reason = ui.to_display(wo("reason", d0, d1, stores))
-    by_reason["Причина"] = by_reason["reason"].map(ui.REASON_LABEL)
-    fig = px.bar(
-        by_reason.sort_values("write_off_cost"),
-        x="write_off_cost",
-        y="Причина",
-        orientation="h",
-        color_discrete_sequence=[ui.PALETTE["accent"]],
-        text_auto=",.0f",
-    )
-    fig.update_layout(title="Причины списаний, ₽", height=280, xaxis_title=None, yaxis_title=None)
-    st.plotly_chart(fig, width="stretch")
-with c2:
-    day = ui.to_display(wo("day", d0, d1, stores))
-    fig = go.Figure()
-    fig.add_scatter(
-        x=day["write_off_date"],
-        y=day["write_off_cost"],
-        name="Списания за день",
-        line={"color": ui.PALETTE["warn"], "width": 2},
-    )
-    fig.update_layout(title="Динамика списаний, ₽", height=280, yaxis_tickformat=",.0f")
-    fig.update_xaxes(tickformat="%d.%m", hoverformat="%d.%m.%Y")
-    st.plotly_chart(fig, width="stretch")
+with st.expander("Подробнее: причины, динамика, категории и точки"):
+    c1, c2 = st.columns(2)
+    with c1:
+        by_reason = ui.to_display(wo("reason", d0, d1, stores))
+        by_reason["Причина"] = by_reason["reason"].map(ui.REASON_LABEL)
+        fig = px.bar(
+            by_reason.sort_values("write_off_cost"),
+            x="write_off_cost",
+            y="Причина",
+            orientation="h",
+            color_discrete_sequence=[ui.PALETTE["accent"]],
+            text_auto=",.0f",
+        )
+        fig.update_layout(
+            title="Причины списаний, ₽", height=280, xaxis_title=None, yaxis_title=None
+        )
+        st.plotly_chart(fig, width="stretch")
+    with c2:
+        day = ui.to_display(wo("day", d0, d1, stores))
+        fig = go.Figure()
+        fig.add_scatter(
+            x=day["write_off_date"],
+            y=day["write_off_cost"],
+            name="Списания за день",
+            line={"color": ui.PALETTE["warn"], "width": 2},
+        )
+        fig.update_layout(title="Динамика списаний, ₽", height=280, yaxis_tickformat=",.0f")
+        fig.update_xaxes(tickformat="%d.%m", hoverformat="%d.%m.%Y")
+        st.plotly_chart(fig, width="stretch")
 
-c3, c4 = st.columns(2)
-for col, grain, title, label in (
-    (c3, "category", "Списания по категориям", "category_name"),
-    (c4, "store", "Списания по точкам", "store_name"),
-):
-    w = wo(grain, d0, d1, stores)
-    s = sales(grain, d0, d1, stores)
-    key = "category_id" if grain == "category" else "store_id"
-    m = w.merge(s[[key, "cogs"]], on=key, how="left")
-    m["share"] = [
-        metrics.write_off_share(a, b) for a, b in zip(m["write_off_cost"], m["cogs"], strict=True)
-    ]
-    m = ui.to_display(m).sort_values("share")
-    fig = px.bar(
-        m,
-        x=m["share"] * 100,
-        y=label,
-        orientation="h",
-        color_discrete_sequence=[ui.PALETTE["accent2"]],
-        custom_data=["write_off_cost"],
-    )
-    fig.update_traces(
-        hovertemplate="%{y}<br>Доля %{x:.1f}%<br>Списано %{customdata[0]:,.0f} ₽<extra></extra>"
-    )
-    fig.update_layout(
-        title=f"{title}: доля в себестоимости выпуска, %",
-        height=360 if grain == "store" else 280,
-        xaxis_title=None,
-        yaxis_title=None,
-        xaxis_ticksuffix="%",
-    )
-    col.plotly_chart(fig, width="stretch")
+    c3, c4 = st.columns(2)
+    for col, grain, title, label in (
+        (c3, "category", "Списания по категориям", "category_name"),
+        (c4, "store", "Списания по точкам", "store_name"),
+    ):
+        w = wo(grain, d0, d1, stores)
+        s = sales(grain, d0, d1, stores)
+        key = "category_id" if grain == "category" else "store_id"
+        m = w.merge(s[[key, "cogs"]], on=key, how="left")
+        m["share"] = [
+            metrics.write_off_share(a, b)
+            for a, b in zip(m["write_off_cost"], m["cogs"], strict=True)
+        ]
+        m = ui.to_display(m).sort_values("share")
+        fig = px.bar(
+            m,
+            x=m["share"] * 100,
+            y=label,
+            orientation="h",
+            color_discrete_sequence=[ui.PALETTE["accent2"]],
+            custom_data=["write_off_cost"],
+        )
+        fig.update_traces(
+            hovertemplate="%{y}<br>Доля %{x:.1f}%<br>Списано %{customdata[0]:,.0f} ₽<extra></extra>"
+        )
+        fig.update_layout(
+            title=f"{title}: доля в себестоимости выпуска, %",
+            height=360 if grain == "store" else 280,
+            xaxis_title=None,
+            yaxis_title=None,
+            xaxis_ticksuffix="%",
+        )
+        col.plotly_chart(fig, width="stretch")
 
 ui.footer()

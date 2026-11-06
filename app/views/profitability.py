@@ -1,4 +1,4 @@
-"""Экран «Прибыльность»: где маржа ниже сети — факт, база сравнения, отклонение, факторы, что проверить."""
+"""Экран «Низкая маржа»: где маржа ниже сети — факт, база сравнения, отклонение, факторы, что проверить."""
 
 from __future__ import annotations
 
@@ -77,57 +77,57 @@ with b2:
     if stores:
         st.caption("Точки сравниваются по всей сети — фильтр точек к этой таблице не применяется.")
 
-ui.level("Подробно", "Маржинальность категорий и точек")
-c1, c2 = st.columns(2)
-with c1:
-    cat = ui.to_display(by("category", d0, d1, stores)).sort_values("gross_margin")
-    fig = px.bar(
-        cat,
-        x=cat["gross_margin"] * 100,
-        y="category_name",
-        orientation="h",
-        color_discrete_sequence=[ui.PALETTE["accent"]],
-        custom_data=["revenue", "gross_profit"],
-    )
-    fig.update_traces(
-        hovertemplate="%{y}<br>Маржа %{x:.1f}%<br>Выручка %{customdata[0]:,.0f} ₽"
-        "<br>Прибыль %{customdata[1]:,.0f} ₽<extra></extra>"
-    )
-    if net_margin is not None:
-        fig.add_vline(
-            x=float(net_margin) * 100,
-            line_dash="dash",
-            line_color=ui.PALETTE["muted"],
-            annotation_text="сеть",
-            annotation_position="top",
+with st.expander("Подробнее: маржа категорий и точек на графиках"):
+    c1, c2 = st.columns(2)
+    with c1:
+        cat = ui.to_display(by("category", d0, d1, stores)).sort_values("gross_margin")
+        fig = px.bar(
+            cat,
+            x=cat["gross_margin"] * 100,
+            y="category_name",
+            orientation="h",
+            color_discrete_sequence=[ui.PALETTE["accent"]],
+            custom_data=["revenue", "gross_profit"],
         )
-    fig.update_layout(
-        title="Маржинальность по категориям, %",
-        height=320,
-        xaxis_title=None,
-        yaxis_title=None,
-        xaxis_ticksuffix="%",
-    )
-    st.plotly_chart(fig, width="stretch")
-with c2:
-    sm = ui.to_display(store_margin(d0, d1)).sort_values("gross_margin")
-    fig = px.bar(
-        sm,
-        x=sm["diff_from_network"] * 100,
-        y="store_name",
-        orientation="h",
-        color=sm["diff_from_network"] < 0,
-        color_discrete_map={True: ui.PALETTE["warn"], False: ui.PALETTE["accent"]},
-    )
-    fig.update_layout(
-        title="Точки: отклонение маржинальности от сети, п. п.",
-        height=320,
-        showlegend=False,
-        xaxis_title=None,
-        yaxis_title=None,
-    )
-    st.plotly_chart(fig, width="stretch")
-    st.caption("SQL-задача 4 · по всей сети, без фильтра точек")
+        fig.update_traces(
+            hovertemplate="%{y}<br>Маржа %{x:.1f}%<br>Выручка %{customdata[0]:,.0f} ₽"
+            "<br>Прибыль %{customdata[1]:,.0f} ₽<extra></extra>"
+        )
+        if net_margin is not None:
+            fig.add_vline(
+                x=float(net_margin) * 100,
+                line_dash="dash",
+                line_color=ui.PALETTE["muted"],
+                annotation_text="сеть",
+                annotation_position="top",
+            )
+        fig.update_layout(
+            title="Маржинальность по категориям, %",
+            height=320,
+            xaxis_title=None,
+            yaxis_title=None,
+            xaxis_ticksuffix="%",
+        )
+        st.plotly_chart(fig, width="stretch")
+    with c2:
+        sm = ui.to_display(store_margin(d0, d1)).sort_values("gross_margin")
+        fig = px.bar(
+            sm,
+            x=sm["diff_from_network"] * 100,
+            y="store_name",
+            orientation="h",
+            color=sm["diff_from_network"] < 0,
+            color_discrete_map={True: ui.PALETTE["warn"], False: ui.PALETTE["accent"]},
+        )
+        fig.update_layout(
+            title="Точки: отклонение маржинальности от сети, п. п.",
+            height=320,
+            showlegend=False,
+            xaxis_title=None,
+            yaxis_title=None,
+        )
+        st.plotly_chart(fig, width="stretch")
+        st.caption("SQL-задача 4 · по всей сети, без фильтра точек")
 
 ui.level(
     "Товары",

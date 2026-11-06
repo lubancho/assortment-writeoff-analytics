@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
+import pandas as pd
 import streamlit as st
 from components import ui
 
 from asa import recommendations as rec
 
 ui.page_header(
-    "Задачи на проверку",
+    "Что проверить",
     "Каждая задача — что проверить, почему и с какими ограничениями. Задачи не утверждают причину "
     "и не предлагают выводить товар из ассортимента только по классу ABC/XYZ.",
 )
@@ -58,27 +59,42 @@ if f_rule:
 if f_cat:
     view = view[view["category_name"].isin(f_cat)]
 
-st.caption(
-    f"Показано {min(len(view), 60)} из {len(view)} (всего задач {len(recs)}). Сначала — высокая важность."
+view = view.reset_index(drop=True)
+table = pd.DataFrame(
+    {
+        "Важность": view["severity"],
+        "Товар": view["product_name"],
+        "Категория": view["category_name"],
+        "Проблема": view["problem"],
+        "Доказательство": view["value"],
+        "Что проверить": view["action"],
+    }
 )
-LVL = {"Высокая": "crit", "Средняя": "warn", "Низкая": "info"}
-for r in view.head(60).itertuples(index=False):
-    with st.container(border=True):
-        st.markdown(
-            f"<span class='ux-pill {LVL[r.severity]}'>Важность: {r.severity.lower()}</span> "
-            f"**{r.product_name}** · {r.category_name} · правило {r.rule} · артикул {r.sku}",
-            unsafe_allow_html=True,
-        )
-        c = st.columns(4)
-        c[0].markdown(f"**Проблема**  \n{r.problem}")
-        c[1].markdown(
-            f"**Доказательство**  \n{r.value}  \n<small>{r.basis}</small>", unsafe_allow_html=True
-        )
-        c[2].markdown(
-            f"**Что проверить**  \n{r.action}  \n<small>Возможная причина: {r.possible_cause}</small>",
-            unsafe_allow_html=True,
-        )
-        c[3].markdown(f"**Ограничения**  \n{r.limitations}")
-if len(view) > 60:
-    st.info("Показаны первые 60 задач. Полный список — выгрузка на экране «Методика и отчёты».")
+event = st.dataframe(
+    table,
+    hide_index=True,
+    width="stretch",
+    height=430,
+    on_select="rerun",
+    selection_mode="single-row",
+    key="rc_table",
+    column_config={
+        "Важность": st.column_config.TextColumn(width="small"),
+        "Проблема": st.column_config.TextColumn(width="medium"),
+        "Доказательство": st.column_config.TextColumn(width="medium"),
+        "Что проверить": st.column_config.TextColumn(width="large"),
+    },
+)
+st.caption(
+    f"Задач: {len(view)} из {len(recs)}. Выберите строку — ниже появятся основание, возможная причина и ограничения."
+)
+if event and event.selection.rows:
+    r = view.iloc[event.selection.rows[0]]
+    ui.box(
+        f"<b>{r['product_name']}</b> · {r['category_name']} · правило {r['rule']} · важность: {r['severity'].lower()}<br>"
+        f"<b>Основание:</b> {r['basis']}<br><b>Доказательство:</b> {r['value']}<br>"
+        f"<b>Возможная причина (не установлена):</b> {r['possible_cause']}<br>"
+        f"<b>Что проверить:</b> {r['action']}<br><b>Ограничения:</b> {r['limitations']}",
+        "warn" if r["severity"] != "Низкая" else "",
+    )
 ui.footer()
